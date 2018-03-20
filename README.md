@@ -81,7 +81,7 @@ agent.sources.ftp1.process.discovered.files = false
 |Parameter|Description|mandatory|default|observations|
 |------|-----------|---|----|---|
 |work.dir|path for incoming files|yes|-|-|
-|includePattern| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for mathing files' names|yes|-|-|
+|includePattern| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for mathing files' names|no|-|-|
 |processed.dir|if property set, files processed will be moved to dir|no|not move|not available for FTP
 |process.discovered|process files that were in incoming before launching|no|true|-|
 
