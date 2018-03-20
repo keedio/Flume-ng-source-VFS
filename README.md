@@ -7,11 +7,7 @@
 Files created or modified will be discovered and processed by tailing lines.
 
 ## Supported File Systems
-Although Commons VFS directly supports the following file systems:
-
-[Supported File Systems](https://commons.apache.org/proper/commons-vfs/filesystems.html)
-
-**actually Flume-ng-source-vfs has only been tested in the following one**:
+Apache Commons VFS supports the following file systems [Link to File Systems](https://commons.apache.org/proper/commons-vfs/filesystems.html), however Flume-ng-source-vfs has only been tested in the following one:
 
 * **File**: `file:///home/someuser/somedir`
 * **FTP**:  `ftp://myusername:mypassword@somehost/somedir`
@@ -62,7 +58,6 @@ agent.sources.local1.process.discovered.files = false
 agent.sources.ftp1.type = org.keedio.flume.source.vfs.source.SourceVFS
 agent.sources.ftp1.work.dir = ftp://user:pass@192.168.0.1/incoming
 agent.sources.ftp1.includePattern = \\.*.remote.txt
-agent.sources.ftp1.processed.dir = /home/flume/processed
 agent.sources.ftp1.process.discovered.files = false
 
 ##end of sources configuration for Agent 'agent'
@@ -83,12 +78,12 @@ agent.sources.ftp1.process.discovered.files = false
 
 ### Configurable parameters
 
-|Parameter|Description|mandatory|default|
-|------|-----------|---|----|
-|work.dir|path for incoming files|yes|-|
-|includePattern| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for mathing files' names|yes|-|
-|processed.dir|if property set, files processed will be moved to dir|no|not move|
-|process.discovered|process files that were in incoming before launching|no|true|
+|Parameter|Description|mandatory|default|observations|
+|------|-----------|---|----|---|
+|work.dir|path for incoming files|yes|-|-|
+|includePattern| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for mathing files' names|yes|-|-|
+|processed.dir|if property set, files processed will be moved to dir|no|not move|not available for FTP
+|process.discovered|process files that were in incoming before launching|no|true|-|
 
 ## Notes on supported and tested file systems ##
 
