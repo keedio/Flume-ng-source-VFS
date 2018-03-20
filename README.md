@@ -5,6 +5,8 @@
 
 ## Description
 Files created or modified will be discovered and processed by tailing lines.
+If source is local filesystem, processed files can be moved to other directory different from incoming.
+A map of correctly processed files is maintained.
 
 ## Supported File Systems
 Apache Commons VFS supports the following file systems [Link to File Systems](https://commons.apache.org/proper/commons-vfs/filesystems.html), however Flume-ng-source-vfs has only been tested in the following one:
@@ -47,14 +49,14 @@ mvn clean package
 agent.sources =  local1 ftp1
 
 
-## example a local file system
+## A source called local1 is retrieving files from local filesystem
 agent.sources.local1.type = org.keedio.flume.source.vfs.source.SourceVFS
 agent.sources.local1.work.dir = /home/flume/incoming
 agent.sources.local1.includePattern = \\.*.txt
 agent.sources.local1.processed.dir = /home/flume/processed
 agent.sources.local1.process.discovered.files = false
 
-
+## A source called ftp1 is retrieving files from a remote FTP filysystem
 agent.sources.ftp1.type = org.keedio.flume.source.vfs.source.SourceVFS
 agent.sources.ftp1.work.dir = ftp://user:pass@192.168.0.1/incoming
 agent.sources.ftp1.includePattern = \\.*.remote.txt
@@ -81,7 +83,7 @@ agent.sources.ftp1.process.discovered.files = false
 |Parameter|Description|mandatory|default|observations|
 |------|-----------|---|----|---|
 |work.dir|path for incoming files|yes|-|-|
-|includePattern| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for mathing files' names|no|-|-|
+|includePattern| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for matching files' names|no|-|-|
 |processed.dir|if property set, files processed will be moved to dir|no|not move|not available for FTP
 |process.discovered|process files that were in incoming before launching|no|true|-|
 
@@ -91,5 +93,7 @@ agent.sources.ftp1.process.discovered.files = false
 | ------ | ------ |
 |  ftp  |   In most cases the ftp client will be behind a FW so Passive Mode is set to true by default. Active mode is not working in actual version. Anyway, if you need explicitly Active mode just set in source code `setPassiveMode(options, false)`.
 
+## Wiki
+ [Documentation Flume-ng-source-VFS](https://github.com/keedio/Flume-ng-source-VFS/wiki/Keedio's-Flume-ng-source-vfs-documentation.)
 
 * * *
