@@ -4,6 +4,7 @@ import java.util.concurrent._
 
 import org.apache.commons.vfs2._
 import org.apache.commons.vfs2.impl.DefaultFileMonitor
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
@@ -14,7 +15,10 @@ import scala.util.matching.Regex
   * Keedio
   */
 
-class WatchablePath(uri: String, refresh: Int, start: Int, regex: Regex, fileObject: FileObject, listener: StateListener) {
+class WatchablePath(uri: String, refresh: Int, start: Int, regex: Regex, fileObject: FileObject, listener:
+StateListener, processDiscovered: Boolean, sourceName: String) {
+
+  val LOG: Logger = LoggerFactory.getLogger(classOf[WatchablePath])
 
   //list of susbcribers(observers) for changes in fileObject
   private val listeners: ListBuffer[StateListener] = new ListBuffer[StateListener]
@@ -27,15 +31,13 @@ class WatchablePath(uri: String, refresh: Int, start: Int, regex: Regex, fileObj
       val eventDelete: StateEvent = new StateEvent(fileChangeEvent, State.ENTRY_DELETE)
       if (isValidFilenameAgainstRegex(eventDelete)) {
         fireEvent(eventDelete)
-        //fileObject.refresh()
-        }
+      }
     }
 
     override def fileChanged(fileChangeEvent: FileChangeEvent): Unit = {
       val eventChanged: StateEvent = new StateEvent(fileChangeEvent, State.ENTRY_MODIFY)
       if (isValidFilenameAgainstRegex(eventChanged)) {
         fireEvent(eventChanged)
-        //fileObject.refresh()
       }
     }
 
@@ -43,7 +45,6 @@ class WatchablePath(uri: String, refresh: Int, start: Int, regex: Regex, fileObj
       val eventCreate: StateEvent = new StateEvent(fileChangeEvent, State.ENTRY_CREATE)
       if (isValidFilenameAgainstRegex(eventCreate)) {
         fireEvent(eventCreate)
-        //fileObject.refresh()
       }
     }
 
@@ -51,7 +52,6 @@ class WatchablePath(uri: String, refresh: Int, start: Int, regex: Regex, fileObj
       val eventDiscovered: StateEvent = new StateEvent(fileChangeEvent, State.ENTRY_DISCOVER)
       if (isValidFilenameAgainstRegex(eventDiscovered)) {
         fireEvent(eventDiscovered)
-        //fileObject.refresh()
       }
     }
   }
@@ -61,7 +61,19 @@ class WatchablePath(uri: String, refresh: Int, start: Int, regex: Regex, fileObj
   defaultMonitor.setDelay(secondsToMiliseconds(refresh))
   defaultMonitor.setRecursive(true)
   defaultMonitor.addFile(fileObject)
-  children.foreach( child => fileListener.fileDiscovered(new FileChangeEvent(child)))
+  processDiscovered match {
+    case true =>
+      children.foreach(child => fileListener.fileDiscovered(new FileChangeEvent(child)))
+      LOG
+        .info("Source " + sourceName + " has property 'process.discovered.files' set to " + processDiscovered + ", " +
+          "process files that exists " +
+          "before start source.")
+    case false =>
+      LOG
+      .info("Source " + sourceName + " has property 'process.discovered.files' set to " + processDiscovered + ", do " +
+        "not process files that exists " +
+        "before start source.")
+  }
 
   // the number of threads to keep in the pool, even if they are idle
   private val corePoolSize = 1
@@ -139,6 +151,5 @@ class WatchablePath(uri: String, refresh: Int, start: Int, regex: Regex, fileObj
       }
     }
   }
-
 
 }
