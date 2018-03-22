@@ -15,13 +15,6 @@ import org.apache.commons.vfs2.provider.ftp.FtpFileSystemConfigBuilder
   * specify config parameters
   */
 object FileObjectBuilder {
-
-//  private val fsManager = VFS.getManager
-//  private val options: FileSystemOptions = new FileSystemOptions()
-//  private val fs = new StandardFileSystemManager
-//  fs.setCacheStrategy(CacheStrategy.MANUAL)
-//  fs.init()
-
   /**
     * Get a FileObject for the supported file system.
     * @param uri
