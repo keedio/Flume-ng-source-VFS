@@ -27,8 +27,6 @@ trait SourceCounterVfsMBean {
 
   def getEventThroughput(): Long
 
-  def getFileThroughput(): Long
-
   def getLastEventSent: Long
 
   def getLastFileSent: Long

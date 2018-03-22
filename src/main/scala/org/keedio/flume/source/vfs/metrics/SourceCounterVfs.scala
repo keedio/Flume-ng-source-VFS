@@ -75,8 +75,6 @@ class SourceCounterVfs(val name: String)
 
   override def getEventThroughput(): Long = eventThroughput
 
-  override def getFileThroughput(): Long = fileThroughput
-
   override def getLastEventSent: Long = lastEventSent
 
   override def getLastFileSent: Long = lastFileSent
