@@ -94,6 +94,6 @@ agent.sources.ftp1.process.discovered.files = false
 |  ftp  |   In most cases the ftp client will be behind a FW so Passive Mode is set to true by default. Active mode is not working in actual version. Anyway, if you need explicitly Active mode just set in source code `setPassiveMode(options, false)`.
 
 ## Wiki
- [Documentation Flume-ng-source-VFS](https://github.com/keedio/Flume-ng-source-VFS/wiki/Keedio's-Flume-ng-source-vfs-documentation.)
+ [Documentation Flume-ng-source-VFS](https://github.com/keedio/Flume-ng-source-VFS/wiki)
 
 * * *
