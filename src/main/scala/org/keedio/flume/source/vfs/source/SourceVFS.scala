@@ -58,8 +58,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                   sourceVFScounter.incrementFilesCount()
                   sourceVFScounter.incrementCountSizeProc(fileSize)
-                  if (Files.exists(Paths.get(processedDir)) && processedDir != "") {
-                    file.moveTo(FileObjectBuilder.getFileObject(processedDir + "/" + fileName))
+                  val dirDest: FileObject = FileObjectBuilder.getFileObject(processedDir)
+                  val fileDest: FileObject = FileObjectBuilder.getFileObject(processedDir + "/" + fileName)
+                  if (dirDest.exists() && processedDir != "") {
+                    file.moveTo(fileDest)
                     LOG.info("Moving processed file " + fileName + " to dir " + processedDir)
                   }
                 }
@@ -128,8 +130,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                     saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                     sourceVFScounter.incrementFilesCount()
                     sourceVFScounter.incrementCountSizeProc(fileSize)
-                    if (Files.exists(Paths.get(processedDir)) && processedDir != "") {
-                      file.moveTo(FileObjectBuilder.getFileObject(processedDir + "/" + fileName))
+                    val dirDest: FileObject = FileObjectBuilder.getFileObject(processedDir)
+                    val fileDest: FileObject = FileObjectBuilder.getFileObject(processedDir + "/" + fileName)
+                    if (dirDest.exists() && processedDir != "") {
+                      file.moveTo(fileDest)
                       LOG.info("Moving processed file " + fileName + " to dir " + processedDir)
                     }
                   }
@@ -151,8 +155,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                       saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                     }
                   }
-                  if (Files.exists(Paths.get(processedDir)) && processedDir != "") {
-                    file.moveTo(FileObjectBuilder.getFileObject(processedDir + "/" + fileName))
+                  val dirDest: FileObject = FileObjectBuilder.getFileObject(processedDir)
+                  val fileDest: FileObject = FileObjectBuilder.getFileObject(processedDir + "/" + fileName)
+                  if (dirDest.exists() && processedDir != "") {
+                    file.moveTo(fileDest)
                     LOG.info("Moving processed file " + fileName + " to dir " + processedDir)
                   }
                 }
