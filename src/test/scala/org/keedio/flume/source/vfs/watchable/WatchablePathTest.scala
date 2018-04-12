@@ -47,7 +47,7 @@ class WatchablePathTest {
     }
 
     val watchable = new WatchablePath(csvDir, refreshTime, startTime, csvRegex, fs
-      .resolveFile(csvDir), listener, false, "sourcename")
+      .resolveFile(csvDir), listener, false, "sourcename", 0)
     conditionsGenerator(10, 2000) //(10 iterations * 2 seconds)
 
   }
@@ -81,7 +81,7 @@ class WatchablePathTest {
     }
 
     val watchable = new WatchablePath(csvDir, refreshTime, startTime, csvRegex, fs
-      .resolveFile(csvDir), listener, true, "sourcename")
+      .resolveFile(csvDir), listener, true, "sourcename", 0)
 
     try {
       for (i <- 1 to 5) {
