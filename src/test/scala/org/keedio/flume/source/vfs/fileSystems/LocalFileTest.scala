@@ -1,12 +1,16 @@
 package org.keedio.flume.source.vfs.fileSystems
 
 import java.nio.file._
+import java.nio.file.attribute.FileTime
 import java.util
+import java.util.{Calendar, Date}
 
 import org.apache.flume._
 import org.apache.flume.channel._
 import org.apache.flume.conf.Configurables
 import org.apache.flume.lifecycle.{LifecycleController, LifecycleState}
+import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers._
 import org.junit.{After, _}
 import org.keedio.flume.source.vfs.source.SourceVFS
 import org.slf4j.{Logger, LoggerFactory}
@@ -43,9 +47,9 @@ class LocalFileTest {
   }
 
   @After
-  def tearDown(): Unit = {
+    def tearDown(): Unit = {
     import scala.collection.JavaConversions._
-    Files.newDirectoryStream(tmpDir).foreach(path => {
+      Files.newDirectoryStream(tmpDir).foreach(path => {
       LOG.info("Cleaning file " + path)
       Files.deleteIfExists(path)
     })
@@ -60,6 +64,7 @@ class LocalFileTest {
     val context = new Context()
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "true")
+    context.put("timeout.files", "0")
 
     Configurables.configure(source, context)
 
@@ -79,6 +84,7 @@ class LocalFileTest {
     val context = new Context()
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "true")
+    context.put("timeout.files", "0")
     Configurables.configure(source, context)
 
     source.start()
@@ -105,6 +111,7 @@ class LocalFileTest {
     val context = new Context()
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "true")
+    context.put("timeout.files", "0")
     Configurables.configure(source, context)
 
     source.start()
@@ -131,13 +138,13 @@ class LocalFileTest {
     val context = new Context()
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "false")
+    context.put("timeout.files", "0")
     Configurables.configure(source, context)
     source.start()
 
     val file: Path = Files.createTempFile(tmpDir, "file1", ".txt")
     Files.write(file, "fileline1\nfileline2\n".getBytes(), StandardOpenOption.APPEND)
     LOG.info("create file " + file)
-    //Thread.sleep(5000)
 
     val txn: Transaction = channel.getTransaction
     txn.begin()
@@ -162,6 +169,7 @@ class LocalFileTest {
     val context = new Context()
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "false")
+    context.put("timeout.files", "0")
     Configurables.configure(source, context)
     source.start()
 
@@ -190,7 +198,101 @@ class LocalFileTest {
     Thread.sleep(1000)
     Assert.assertEquals(source.sourceVFScounter.getEventCount, 2)
     Assert.assertEquals(source.sourceVFScounter.getFilesCount, 1)
+  }
 
+//  /**
+//    * If timeout is exceeded, the file must be processed.
+//    */
+//  @Test
+//  def testlastModifiedTimeExceededTimeoutIsTrue() = {
+//    val context = new Context()
+//    context.put("work.dir", tmpDir.toString)
+//    context.put("process.discovered.files", "false")
+//    context.put("timeout.start.process", "60")
+//    Configurables.configure(source, context)
+//    source.start()
+//
+//
+//    val file: Path = Files.createTempFile(tmpDir, "file1", ".txt")
+//    Files.write(file, "fileline1\nfileline2\n".getBytes(), StandardOpenOption.APPEND)
+//    LOG.info("create file " + file + " lastModifiedTime is " + Files.getLastModifiedTime(file))
+//    val lastModifiedTime: Long = Files.getLastModifiedTime(file).toMillis
+//
+//    Files.setLastModifiedTime(file, FileTime.fromMillis(lastModifiedTime - 120000))
+//    LOG.info("modifiying lastmodifiedtime attribute to " + Files.getLastModifiedTime(file))
+//
+//    val timeout = context.getString("timeout.start.process").toInt
+//    val cal = Calendar.getInstance
+//    cal.setTime(new Date)
+//    cal.add(Calendar.SECOND, -timeout)
+//    val timeoutAgo: Date = cal.getTime
+//    val dateModified = new Date(Files.getLastModifiedTime(file).toMillis)
+//    Assert.assertTrue(dateModified.compareTo(timeoutAgo) < 0)
+//    assertThat(java.lang.Long.valueOf(Files.getLastModifiedTime(file).toMillis),lessThan(java.lang.Long.valueOf(timeoutAgo.getTime)))
+//
+//    Thread.sleep(10000)
+//
+//    val txn: Transaction = channel.getTransaction
+//    txn.begin()
+//
+//    (1 to 2).toList.foreach(i => {
+//      val event = channel.take()
+//      Assert.assertEquals(new String(event.getBody), "fileline" + i)
+//      LOG.info("event " + i + " body contains " + new String(event.getBody))
+//    })
+//
+//    txn.commit()
+//    txn.close()
+//
+//    Thread.sleep(1000)
+//    Assert.assertEquals(source.sourceVFScounter.getEventCount, 2)
+//    Assert.assertEquals(source.sourceVFScounter.getFilesCount, 1)
+//  }
+
+  /**
+    * If timeout is still before to lasModificationtime of the file, do not yet process.
+    */
+  @Test
+  def testlastModifiedTimeExceededTimeoutIsFalse() = {
+    val context = new Context()
+    context.put("work.dir", tmpDir.toString)
+    context.put("process.discovered.files", "false")
+    context.put("timeout.start.process", "60")
+    Configurables.configure(source, context)
+    source.start()
+
+
+    val file: Path = Files.createTempFile(tmpDir, "file1", ".txt")
+    Files.write(file, "fileline1\nfileline2\n".getBytes(), StandardOpenOption.APPEND)
+    LOG.info("create file " + file + " lastModifiedTime is " + Files.getLastModifiedTime(file))
+    val lastModifiedTime: Long = Files.getLastModifiedTime(file).toMillis
+
+    Files.setLastModifiedTime(file, FileTime.fromMillis(lastModifiedTime - 30000))
+    LOG.info("modifiying lastmodifiedtime attribute to " + Files.getLastModifiedTime(file))
+
+    val timeout = context.getString("timeout.start.process").toInt
+    val cal = Calendar.getInstance
+    cal.setTime(new Date)
+    cal.add(Calendar.SECOND, - timeout)
+    val timeoutAgo: Date = cal.getTime
+    val dateModified = new Date(Files.getLastModifiedTime(file).toMillis)
+    Assert.assertTrue(dateModified.compareTo(timeoutAgo) > 0)
+    assertThat(java.lang.Long.valueOf(Files.getLastModifiedTime(file).toMillis),greaterThan(java.lang.Long.valueOf(timeoutAgo.getTime)))
+
+    val txn: Transaction = channel.getTransaction
+    txn.begin()
+
+    (1 to 2).toList.foreach(i => {
+      val event = channel.take()
+      Assert.assertNull(event)
+    })
+
+    txn.commit()
+    txn.close()
+
+    Thread.sleep(1000)
+    Assert.assertEquals(source.sourceVFScounter.getEventCount, 0)
+    Assert.assertEquals(source.sourceVFScounter.getFilesCount, 0)
   }
 
 }
