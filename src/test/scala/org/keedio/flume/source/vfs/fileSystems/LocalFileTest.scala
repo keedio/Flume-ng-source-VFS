@@ -65,6 +65,7 @@ class LocalFileTest {
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "true")
     context.put("timeout.files", "0")
+    context.put("processed.dir", tmpDir.toString)
 
     Configurables.configure(source, context)
 
@@ -85,6 +86,7 @@ class LocalFileTest {
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "true")
     context.put("timeout.files", "0")
+    context.put("processed.dir", tmpDir.toString)
     Configurables.configure(source, context)
 
     source.start()
@@ -112,6 +114,7 @@ class LocalFileTest {
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "true")
     context.put("timeout.files", "0")
+    context.put("processed.dir", tmpDir.toString)
     Configurables.configure(source, context)
 
     source.start()

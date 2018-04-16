@@ -58,12 +58,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                   sourceVFScounter.incrementFilesCount()
                   sourceVFScounter.incrementCountSizeProc(fileSize)
-                  val dirDest: FileObject = FileObjectBuilder.getFileObject(processedDir)
-                  val fileDest: FileObject = FileObjectBuilder.getFileObject(processedDir + "/" + fileName)
-                  if (dirDest.exists() && processedDir != "") {
-                    file.moveTo(fileDest)
-                    LOG.info("Moving processed file " + fileName + " to dir " + processedDir)
-                  }
+                  movFile(processedDir, file)
                 }
               }
             }
@@ -96,17 +91,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
         case "entry_delete" => {
           val thread: Thread = new Thread() {
             override def run(): Unit = {
-              val fileName = event.getFileChangeEvent.getFile.getName.getBaseName
+              val file: FileObject = event.getFileChangeEvent.getFile
+              val fileName = file.getName.getBaseName
               LOG.info("Source " + sourceName + " received event: " + event.getState
                 .toString() + " file " + fileName)
-              /*
-                      todo: if file is deleted from directory
-                      option 1) keep as file deleted in map of files
-                      option 2) delete from map of files
-              */
-
-//              mapOfFiles -= fileName
-//              saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
             }
           }
           executor.execute(thread)
@@ -130,12 +118,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                     saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                     sourceVFScounter.incrementFilesCount()
                     sourceVFScounter.incrementCountSizeProc(fileSize)
-                    val dirDest: FileObject = FileObjectBuilder.getFileObject(processedDir)
-                    val fileDest: FileObject = FileObjectBuilder.getFileObject(processedDir + "/" + fileName)
-                    if (dirDest.exists() && processedDir != "") {
-                      file.moveTo(fileDest)
-                      LOG.info("Moving processed file " + fileName + " to dir " + processedDir)
-                    }
+                    movFile(processedDir, file)
                   }
 
                 case true => {
@@ -155,12 +138,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                       saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                     }
                   }
-                  val dirDest: FileObject = FileObjectBuilder.getFileObject(processedDir)
-                  val fileDest: FileObject = FileObjectBuilder.getFileObject(processedDir + "/" + fileName)
-                  if (dirDest.exists() && processedDir != "") {
-                    file.moveTo(fileDest)
-                    LOG.info("Moving processed file " + fileName + " to dir " + processedDir)
-                  }
+                  movFile(processedDir, file)
                 }
               }
             }
@@ -180,10 +158,17 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     includePattern = context.getString("includePattern", """[^.]*\.*?""")
     LOG.info("Source " + sourceName + " watching path : " + workDir + " and pattern " + includePattern)
     processedDir = context.getString("processed.dir", "")
+    if (processedDir == "") {
+      LOG.info("Property 'prcocess.dir', not set, files will not be moved after processing.")
+    }
+
     statusFile = Paths
       .get(System.getProperty("java.io.tmpdir") + System.getProperty("file.separator") + sourceName + ".ser").toString
+
     processDiscovered = context.getString("process.discovered.files", "true").toBoolean
+
     timeOut = context.getString("timeout.start.process", "0").toInt
+
     if (Files.exists(Paths.get(statusFile))) {
       mapOfFiles = loadMap(statusFile)
     }
@@ -287,10 +272,24 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     val ois = new ObjectInputStream(new FileInputStream(statusFile))
     val mapOfFiles = ois.readObject().asInstanceOf[mutable.HashMap[String, Long]]
     ois.close()
-    if (LOG.isDebugEnabled) {
-      LOG.debug("Load from file system map of processed files. " + statusFile)
-    }
+      LOG.info("Load from file system map of processed files. " + statusFile)
     mapOfFiles
+  }
+
+  /**
+    * Move files to destiny under file system.
+    * @param processDir
+    * @param file
+    */
+  def movFile(processDir: String, file: FileObject): Unit = {
+    val fileName = file.getName.getBaseName
+    if (processDir != "" && FileObjectBuilder.getFileObject(processedDir).exists()) {
+      val fileDest: FileObject = FileObjectBuilder.getFileObject(processedDir + "/" + fileName)
+      file.moveTo(fileDest)
+      if (fileDest.exists()) {
+        LOG.info("Moving processed file " + fileName + " to dir " + processedDir)
+      }
+    }
   }
 
 }

@@ -32,6 +32,8 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
       val eventDelete: StateEvent = new StateEvent(fileChangeEvent, State.ENTRY_DELETE)
       if (isValidFilenameAgainstRegex(eventDelete)) {
         fireEvent(eventDelete)
+        val fs = fileObject.getFileSystem
+        fs.removeListener(fileChangeEvent.getFile, this)
       }
     }
 
@@ -167,10 +169,12 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
       LOG.error("File for event " + event.getState + " not exists.")
       status = false
     }
+
     if (!event.getFileChangeEvent.getFile.isReadable) {
       LOG.error(event.getFileChangeEvent.getFile.getPublicURIString + " is not readable.")
       status = false
     }
+
     if (!event.getFileChangeEvent.getFile.isFile) {
       LOG.error(event.getFileChangeEvent.getFile.getName.getBaseName + " is not a regular file.")
       status = false
@@ -199,6 +203,7 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
                 if (lastModifiedTimeExceededTimeout(updateModified, accurateTimeout)) {
                   status = false
                 } else {
+                  LOG.info("File " + fileName + " reached threshold last modified time, send to process.")
                   fileListener.fileCreated(new FileChangeEvent(file))
                 }
               }
@@ -207,12 +212,7 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
             TimeUnit.SECONDS
           )
           status = false
-
-        } else {
-          LOG.info("File " + fileName + " reached treshold last modified time, send to process.")
-          status = true
         }
-
     }
     status
   }
@@ -253,8 +253,10 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
         (baseTimeOut.toLong - x.toLong).toInt
       case _ => baseTimeOut
     }
-    LOG.info("The accuracy of the last modification time provided by file system is " + lastModifiedTimeAccuracy +
-      " ms " + ", computed timeout is " + adjustedTimeout + " seconds")
+    if (LOG.isDebugEnabled) {
+      LOG.debug("The accuracy of the last modification time provided by file system is " + lastModifiedTimeAccuracy +
+        " ms " + ", computed timeout is " + adjustedTimeout + " seconds")
+    }
 
     adjustedTimeout
   }
