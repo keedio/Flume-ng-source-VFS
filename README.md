@@ -4,12 +4,10 @@
 **Flume-ng-source-VFS** is a custom Apache Flume source component for processing files under supported file sytems by Apache-Commons-Vfs2™.
 
 ## Description
-Files created or modified will be discovered and processed by tailing lines.
-If source is local filesystem, processed files can be moved to other directory different from incoming.
-A map of correctly processed files is maintained.
+Files created or modified will be discovered and sent to flume to be processed by lines.
 
 ## Supported File Systems
-Apache Commons VFS supports the following file systems [Link to File Systems](https://commons.apache.org/proper/commons-vfs/filesystems.html), however Flume-ng-source-vfs has only been tested in the following one:
+Apache Commons VFS supports [multiple file systems](https://commons.apache.org/proper/commons-vfs/filesystems.html), however Flume-ng-source-vfs has only been tested in the following one:
 
 * **File**: `file:///home/someuser/somedir`
 * **FTP**:  `ftp://myusername:mypassword@somehost/somedir`
@@ -42,7 +40,9 @@ mvn clean package
 ````
 # www.keedio.com
 
-# example configuration for VFS source
+# example configuration for VFS sources.
+# A single Agent with two sources, one local to filesystem and a second one pointing to remote FTP.
+
 
 
 #ACTIVE LIST
@@ -55,12 +55,14 @@ agent.sources.local1.work.dir = /home/flume/incoming
 agent.sources.local1.includePattern = \\.*.txt
 agent.sources.local1.processed.dir = /home/flume/processed
 agent.sources.local1.process.discovered.files = false
+agent.sources.local1.timeout.start.process = 30
 
 ## A source called ftp1 is retrieving files from a remote FTP filysystem
 agent.sources.ftp1.type = org.keedio.flume.source.vfs.source.SourceVFS
-agent.sources.ftp1.work.dir = ftp://user:pass@192.168.0.1/incoming
+agent.sources.ftp1.work.dir = ftp://user:pass@192.168.0.3/incoming
 agent.sources.ftp1.includePattern = \\.*.remote.txt
 agent.sources.ftp1.process.discovered.files = false
+agent.sources.ftp1.processed.dir = ftp://user:pass@192.168.0.3/out
 
 ##end of sources configuration for Agent 'agent'
 ````
@@ -84,8 +86,14 @@ agent.sources.ftp1.process.discovered.files = false
 |------|-----------|---|----|---|
 |work.dir|path for incoming files|yes|-|-|
 |includePattern| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for matching files' names|no|-|-|
-|processed.dir|if property set, files processed will be moved to dir|no|not move|not available for FTP
-|process.discovered|process files that were in incoming before launching|no|true|-|
+|processed.dir|if property set, files processed will be moved to dir (path for out files)|no|not move|remember check for permissions
+|process.discovered.files|process files that were in incoming before launching|no|true|-|
+|timeout.start.process|Process file if 'timeout' seconds have passed since the last modification of the file. Intended for huge files being downloaded to incoming with high network latency. |no|false|The timeout set by this property is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
+
+## Notes on usage.
++ When scanning for files in 'work.dir', files in subdirectories will also be cached and processed. At the moment (0.2.0), it is not configurable.
++ In some use cases, files to be processed by flume are not yet completed (full content) while downloading to incoming, i.e., the file have already started being processing and at the same moment new lines are being appended. Flume-vfs treats this lines like modifications over a file already cached, processing them in normal way. If network latency is high it can cause issues like truncated data, even with small files. For this cases use parameter timeout.start.process.
++ If a file haven been correctly processed, it's name and size are tracked in an external file than is reloaded when flume is restarted. This file is saved on temporal directory. Actually it is not configurable. If flume stops and a file is not yet finished processing, the file will be processed again since start, producing repeated messages.
 
 ## Notes on supported and tested file systems ##
 
@@ -96,4 +104,9 @@ agent.sources.ftp1.process.discovered.files = false
 ## Wiki
  [Documentation Flume-ng-source-VFS](https://github.com/keedio/Flume-ng-source-VFS/wiki)
 
+### Version history #####
+- 0.2.0
+    + Moving files after being processed is done by VFS2 instead of FileUtils.
+    + New configurable parameter to delay the beginning of file processing.
+- 0.1.0 First stable release
 * * *
