@@ -100,12 +100,12 @@ agent.sources.ftp1.post.process.file = move
 
 |Parameter|Description|mandatory|default|observations|
 |------|-----------|---|----|---|
-|work.dir|path for incoming files|yes|-|-|
-|includePattern| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for matching files' names|no|-|-|
-|processed.dir|if property set, files processed will be moved to dir (path for out files)|no|not move|remember check for permissions
-|process.discovered.files|process files that were in incoming before launching|no|true|-|
-|timeout.start.process|Process file if 'timeout' seconds have passed since the last modification of the file. Intended for huge files being downloaded to incoming with high network latency. |no|false|The timeout set by this property is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
-|post.process.file|If file is successfully processed by source, move or delete|no|do nothing|Remeber to check for permissions. If move files is set but target directory does not exists, file will not be moved.|
+|work.dir|path for incoming files|yes|-|/home/flume/incoming|
+|includePattern| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for matching files' names|no|everything|"\\\\.*.txt" just txt files|
+|processed.dir|if property set, files processed will be moved to dir (path for out files)|no|-|/home/flume/out, remember check for permissions
+|process.discovered.files|process files that were in incoming before launching|no|true|true or false|
+|timeout.start.process|Process file if 'timeout' seconds have passed since the last modification of the file. Intended for huge files being downloaded to incoming with high network latency. |no|- |For example 60 (seconds), The timeout set by this property is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
+|post.process.file|If file is successfully processed by source, move or delete|no|-|move or delete. Rememeber to check for permissions. If move files is set but target directory does not exists, file will not be moved.|
 
 ## Notes on usage.
 + When scanning for files in 'work.dir', files in subdirectories will also be cached and processed. At the moment (0.2.0), it is not configurable.
@@ -123,7 +123,7 @@ agent.sources.ftp1.post.process.file = move
 
 ### Version history #####
 - 0.2.1
-    + New configurable parameter for setting and action to take when file has been sucessfully process. Move or delete.
+    + New configurable parameter for setting an action to take when file has been successfully processed. Move or delete.
 - 0.2.0
     + Moving files after being processed is done by VFS2 instead of FileUtils.
     + New configurable parameter to delay the beginning of file processing.
