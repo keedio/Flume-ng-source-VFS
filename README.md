@@ -41,21 +41,36 @@ mvn clean package
 # www.keedio.com
 
 # example configuration for VFS sources.
-# A single Agent with two sources, one local to filesystem and a second one pointing to remote FTP.
+# A single Agent with three sources, two local to filesystem and a third one pointing to remote FTP.
+
+# local1: process files in local directory called incoming_1. Files will be processed when 30 seconds
+#         have elapsed since the atributte lastmodifiedtime of the file has changed. Files to be processed must have
+#         extension "txt". If flume starts and incoming_1 already contains files, do not process them (discovered).
+#         When finish processing , move file to 'processed.dir'.
+
 
 
 
 #ACTIVE LIST
-agent.sources =  local1 ftp1
+agent.sources =  local1 local2 ftp1
 
 
 ## A source called local1 is retrieving files from local filesystem
 agent.sources.local1.type = org.keedio.flume.source.vfs.source.SourceVFS
-agent.sources.local1.work.dir = /home/flume/incoming
+agent.sources.local1.work.dir = /home/flume/incoming_1
 agent.sources.local1.includePattern = \\.*.txt
 agent.sources.local1.processed.dir = /home/flume/processed
 agent.sources.local1.process.discovered.files = false
 agent.sources.local1.timeout.start.process = 30
+agent.sources.local1.post.process.file = move
+
+## A source called local2 is retrieving files from local filesystem
+agent.sources.local2.type = org.keedio.flume.source.vfs.source.SourceVFS
+agent.sources.local2.work.dir = /home/flume/incoming_2
+agent.sources.local2.includePattern = \\.*.txt
+agent.sources.local2.processed.dir = /home/flume/processed
+agent.sources.local2.process.discovered.files = true
+agent.sources.local2.post.process.file = delete
 
 ## A source called ftp1 is retrieving files from a remote FTP filysystem
 agent.sources.ftp1.type = org.keedio.flume.source.vfs.source.SourceVFS
@@ -63,6 +78,7 @@ agent.sources.ftp1.work.dir = ftp://user:pass@192.168.0.3/incoming
 agent.sources.ftp1.includePattern = \\.*.remote.txt
 agent.sources.ftp1.process.discovered.files = false
 agent.sources.ftp1.processed.dir = ftp://user:pass@192.168.0.3/out
+agent.sources.ftp1.post.process.file = move
 
 ##end of sources configuration for Agent 'agent'
 ````
@@ -89,6 +105,7 @@ agent.sources.ftp1.processed.dir = ftp://user:pass@192.168.0.3/out
 |processed.dir|if property set, files processed will be moved to dir (path for out files)|no|not move|remember check for permissions
 |process.discovered.files|process files that were in incoming before launching|no|true|-|
 |timeout.start.process|Process file if 'timeout' seconds have passed since the last modification of the file. Intended for huge files being downloaded to incoming with high network latency. |no|false|The timeout set by this property is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
+|post.process.file|If file is successfully processed by source, move or delete|no|do nothing|Remeber to check for permissions. If move files is set but target directory does not exists, file will not be moved.|
 
 ## Notes on usage.
 + When scanning for files in 'work.dir', files in subdirectories will also be cached and processed. At the moment (0.2.0), it is not configurable.
@@ -105,6 +122,8 @@ agent.sources.ftp1.processed.dir = ftp://user:pass@192.168.0.3/out
  [Documentation Flume-ng-source-VFS](https://github.com/keedio/Flume-ng-source-VFS/wiki)
 
 ### Version history #####
+- 0.2.1
+    + New configurable parameter for setting and action to take when file has been sucessfully process. Move or delete.
 - 0.2.0
     + Moving files after being processed is done by VFS2 instead of FileUtils.
     + New configurable parameter to delay the beginning of file processing.

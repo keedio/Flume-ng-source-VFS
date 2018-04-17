@@ -35,6 +35,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
   var processedDir: String = ""
   var processDiscovered: Boolean = true
   var timeOut: Int = 0
+  var actionToTake: String = ""
 
   val listener = new StateListener {
     override def statusReceived(event: StateEvent): Unit = {
@@ -58,7 +59,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                   sourceVFScounter.incrementFilesCount()
                   sourceVFScounter.incrementCountSizeProc(fileSize)
-                  movFile(processedDir, file)
+                  postProcessFile(actionToTake, file)
                 }
               }
             }
@@ -118,7 +119,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                     saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                     sourceVFScounter.incrementFilesCount()
                     sourceVFScounter.incrementCountSizeProc(fileSize)
-                    movFile(processedDir, file)
+                    postProcessFile(actionToTake, file)
                   }
 
                 case true => {
@@ -138,7 +139,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                       saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                     }
                   }
-                  movFile(processedDir, file)
+                  postProcessFile(actionToTake, file)
                 }
               }
             }
@@ -168,6 +169,8 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     processDiscovered = context.getString("process.discovered.files", "true").toBoolean
 
     timeOut = context.getString("timeout.start.process", "0").toInt
+
+    actionToTake = context.getString("post.process.file", "")
 
     if (Files.exists(Paths.get(statusFile))) {
       mapOfFiles = loadMap(statusFile)
@@ -272,22 +275,69 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     val ois = new ObjectInputStream(new FileInputStream(statusFile))
     val mapOfFiles = ois.readObject().asInstanceOf[mutable.HashMap[String, Long]]
     ois.close()
-      LOG.info("Load from file system map of processed files. " + statusFile)
+    LOG.info("Load from file system map of processed files. " + statusFile)
     mapOfFiles
   }
 
   /**
     * Move files to destiny under file system.
+    *
     * @param processDir
     * @param file
     */
-  def movFile(processDir: String, file: FileObject): Unit = {
+  def moveFile(processDir: String, file: FileObject): Unit = {
     val fileName = file.getName.getBaseName
     if (processDir != "" && FileObjectBuilder.getFileObject(processedDir).exists()) {
       val fileDest: FileObject = FileObjectBuilder.getFileObject(processedDir + "/" + fileName)
       file.moveTo(fileDest)
       if (fileDest.exists()) {
-        LOG.info("Moving processed file " + fileName + " to dir " + processedDir)
+        LOG
+          .info("Moving processed file " + fileName + " to dir " + processedDir + " by action to take for post " +
+            "process file is move.")
+      }
+    } else {
+      LOG.info("Action to take for post process file source " + this
+        .sourceName + " is moving file " + fileName + " but no 'processed.dir' has been set or target directory not " +
+        "exists. ")
+    }
+  }
+
+  /**
+    * Delete file from file system
+    *
+    * @param file
+    */
+  def deleteFile(file: FileObject): Unit = {
+    val fileName = file.getName.getBaseName
+    if (file.delete()) {
+      LOG.info("Deleting processed file " + fileName + " by action to take for post process file is delete.")
+    } else {
+      LOG.error("Could not delete file after processing" + fileName)
+    }
+  }
+
+  /**
+    * Select what to do when file has been processed by flume.
+    *
+    * @param actionToTake
+    * @param file
+    */
+  def postProcessFile(actionToTake: String, file: FileObject): Unit = {
+    actionToTake.trim match {
+      case "" =>
+        LOG
+          .info("No action set for post-processing files source is " + this.sourceName + " nothing to do with " + file
+            .getName.getBaseName)
+        ()
+      case _ => actionToTake match {
+        case "move" => moveFile(processedDir, file)
+        case "delete" => deleteFile(file)
+        case _ =>
+          LOG
+            .error("For source " + this
+              .sourceName + " action to take must be one of : move, delete, or just nothing to do, but wast set: " +
+              actionToTake)
+          ()
       }
     }
   }
