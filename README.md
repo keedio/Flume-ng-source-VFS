@@ -48,7 +48,7 @@ mvn clean package
 #         extension "txt". If flume starts and incoming_1 already contains files, do not process them (discovered).
 #         When finish processing , move file to 'processed.dir'. Only source local1 will keep satus file for tracking
 #         processed files under path /home/flume/status_local1. The name of the file is local1.ser  (<sourcename>.ser)
-#         The other source will keep its status file under temporal folder (default)
+#         The other sources will keep its status file under temporal folder (default)
 
 
 
