@@ -33,7 +33,10 @@ class DefaultMonitorTest {
   def testApiFileMonitorLocalFileSystem(): Unit = {
     val tmp = System.getProperty("java.io.tmpdir")
     val dirTest = Files.createTempDirectory(Paths.get(tmp), this.getClass.getSimpleName)
+    val subTmpDir = Files.createTempDirectory(Paths.get(dirTest.toString), "must_not_search_here")
+
     Assert.assertTrue(Files.exists(dirTest))
+    Assert.assertTrue(Files.exists(subTmpDir))
     val fsManager = VFS.getManager
     val directoryToBemMonitored: FileObject = fsManager.resolveFile(dirTest.toString)
 
@@ -52,26 +55,37 @@ class DefaultMonitorTest {
       }
     })
 
-    fileMonitor.setRecursive(true)
+    fileMonitor.setRecursive(false)
     fileMonitor.addFile(directoryToBemMonitored)
     fileMonitor.setDelay(1) //if not set or set to 0 seconds, file changed is not fired so it is not detected.
     fileMonitor.start()
 
     try {
       val pathForFile = Files.createTempFile(dirTest, "file", ".txt")
+      val pathForFileInSubdir = Files.createTempFile(subTmpDir, "subFile", ".txt")
       Assert.assertTrue(Files.exists(pathForFile))
+      Assert.assertTrue(Files.exists(pathForFileInSubdir))
       LOG.info("Creating file " + pathForFile)
+      LOG.info("Creating file " + pathForFileInSubdir)
       Thread.sleep(1000)
 
       Files.write(pathForFile, "content for file\n".getBytes(), StandardOpenOption.APPEND)
       LOG.info("Appending content to file " + pathForFile)
+
+      Files.write(pathForFileInSubdir, "content for file\n".getBytes(), StandardOpenOption.APPEND)
+      LOG.info("Appending content to file " + pathForFileInSubdir)
       Thread.sleep(1000)
 
       LOG.info("deleting file " + pathForFile)
       Files.deleteIfExists(pathForFile)
+
+      LOG.info("deleting file " + pathForFileInSubdir)
+      if  (Files.deleteIfExists(pathForFileInSubdir))  LOG.info("deleting file " + pathForFileInSubdir)
+
       Thread.sleep(1000)
 
       LOG.info("Cleaning " + dirTest)
+      Files.delete(subTmpDir)
       Files.delete(dirTest)
       Assert.assertFalse(Files.exists(dirTest))
       fileMonitor.stop()
