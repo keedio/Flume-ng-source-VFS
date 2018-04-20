@@ -135,7 +135,7 @@ agent.sources.ftp1.post.process.file = move
 
 ### Version history #####
 - 0.2.2
-    + Recursive search directory is configurable. (Check out for more information in wiki [Issues found](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#issues-found)
+    + Recursive search directory is configurable. (Check out for more information in wiki [Issues found](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#issues-found) )
     + Directory for keeping track of processed files is configurable.
 
 - 0.2.1
