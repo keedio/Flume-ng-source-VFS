@@ -11,6 +11,7 @@ import org.apache.flume.conf.Configurable
 import org.apache.flume.event.SimpleEvent
 import org.apache.flume.source.AbstractSource
 import org.apache.flume.{ChannelException, Context, Event, EventDrivenSource}
+import org.keedio.flume.source.vfs.config.SourceHelper
 import org.keedio.flume.source.vfs.metrics.SourceCounterVfs
 import org.keedio.flume.source.vfs.watcher._
 import org.slf4j.{Logger, LoggerFactory}
@@ -25,17 +26,11 @@ import scala.collection.mutable
 class SourceVFS extends AbstractSource with Configurable with EventDrivenSource {
 
   val LOG: Logger = LoggerFactory.getLogger(classOf[SourceVFS])
-  var mapOfFiles = mutable.HashMap[String, Long]()
-  var sourceVFScounter = new org.keedio.flume.source.vfs.metrics.SourceCounterVfs("")
-  val executor: ExecutorService = Executors.newFixedThreadPool(10)
-  var sourceName: String = ""
-  var statusFile = ""
-  var workDir: String = ""
-  var includePattern: String = ""
-  var processedDir: String = ""
-  var processDiscovered: Boolean = true
-  var timeOut: Int = 0
-  var actionToTake: String = ""
+  private var mapOfFiles = mutable.HashMap[String, Long]()
+  private var sourceVFScounter = new org.keedio.flume.source.vfs.metrics.SourceCounterVfs("")
+  private val executor: ExecutorService = Executors.newFixedThreadPool(10)
+  private var sourceName: String = ""
+  private var sourceHelper: SourceHelper = _
 
   val listener = new StateListener {
     override def statusReceived(event: StateEvent): Unit = {
@@ -56,10 +51,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                 if (readStream(inputStream, fileName, 0)) {
                   LOG.info("End processing new file: " + fileName)
                   mapOfFiles += (fileName -> fileSize)
-                  saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
+                  saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
                   sourceVFScounter.incrementFilesCount()
                   sourceVFScounter.incrementCountSizeProc(fileSize)
-                  postProcessFile(actionToTake, file)
+                  postProcessFile(sourceHelper.getActionToTakeAfterProcessingFiles, file)
                 }
               }
             }
@@ -82,7 +77,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                 LOG.info("End processing modified file: " + fileName)
                 mapOfFiles -= fileName
                 mapOfFiles += (fileName -> fileSize)
-                saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
+                saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
               }
             }
           }
@@ -116,10 +111,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   if (readStream(inputStream, fileName, 0)) {
                     LOG.info("End processing discovered file: " + fileName)
                     mapOfFiles += (fileName -> fileSize)
-                    saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
+                    saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
                     sourceVFScounter.incrementFilesCount()
                     sourceVFScounter.incrementCountSizeProc(fileSize)
-                    postProcessFile(actionToTake, file)
+                    postProcessFile(sourceHelper.getActionToTakeAfterProcessingFiles, file)
                   }
 
                 case true => {
@@ -136,10 +131,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                       LOG.info("End processing modified file: " + fileName)
                       mapOfFiles -= fileName
                       mapOfFiles += (fileName -> fileSize)
-                      saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
+                      saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
                     }
                   }
-                  postProcessFile(actionToTake, file)
+                  postProcessFile(sourceHelper.getActionToTakeAfterProcessingFiles, file)
                 }
               }
             }
@@ -154,43 +149,28 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
   override def configure(context: Context): Unit = {
     sourceName = this.getName
+    sourceHelper = new SourceHelper(context, sourceName)
     sourceVFScounter = new SourceCounterVfs("SOURCE." + sourceName)
-    workDir = context.getString("work.dir")
-    includePattern = context.getString("includePattern", """[^.]*\.*?""")
-    LOG.info("Source " + sourceName + " watching path : " + workDir + " and pattern " + includePattern)
-    processedDir = context.getString("processed.dir", "")
-    if (processedDir == "") {
+    LOG.info("Source " + sourceName + " watching path : " + sourceHelper.getWorkingDirectory + " and pattern " + sourceHelper.getPatternFilesMatch)
+    if (sourceHelper.getOutPutDirectory == "") {
       LOG.info("Property 'prcocess.dir', not set, files will not be moved after processing.")
     }
-
-    statusFile = Paths
-      .get(System.getProperty("java.io.tmpdir") + System.getProperty("file.separator") + sourceName + ".ser").toString
-
-    processDiscovered = context.getString("process.discovered.files", "true").toBoolean
-
-    timeOut = context.getString("timeout.start.process", "0").toInt
-
-    actionToTake = context.getString("post.process.file", "")
-
-    if (Files.exists(Paths.get(statusFile))) {
-      mapOfFiles = loadMap(statusFile)
+    if (Files.exists(Paths.get(sourceHelper.getStatusFile))) {
+      mapOfFiles = loadMap(sourceHelper.getStatusFile)
     }
   }
 
   override def start(): Unit = {
     super.start()
     sourceVFScounter.start
-    val fileObject: FileObject = FileObjectBuilder.getFileObject(workDir)
+    val fileObject: FileObject = FileObjectBuilder.getFileObject(sourceHelper.getWorkingDirectory)
     val watchable = new WatchablePath(
-      workDir,
       5,
       2,
-      s"""$includePattern""".r,
       fileObject,
       listener,
-      processDiscovered,
       sourceName,
-      timeOut)
+      sourceHelper)
   }
 
   override def stop(): Unit = {
@@ -216,6 +196,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       sourceVFScounter.incrementEventCount()
     } catch {
       case ex: ChannelException => {
+        LOG.info("ChannelException was launched, putting to sleep.", ex)
         Thread.sleep(2000)
       }
     }
@@ -287,12 +268,12 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     */
   def moveFile(processDir: String, file: FileObject): Unit = {
     val fileName = file.getName.getBaseName
-    if (processDir != "" && FileObjectBuilder.getFileObject(processedDir).exists()) {
-      val fileDest: FileObject = FileObjectBuilder.getFileObject(processedDir + "/" + fileName)
+    if (processDir != "" && FileObjectBuilder.getFileObject(sourceHelper.getOutPutDirectory).exists()) {
+      val fileDest: FileObject = FileObjectBuilder.getFileObject(sourceHelper.getOutPutDirectory + "/" + fileName)
       file.moveTo(fileDest)
       if (fileDest.exists()) {
         LOG
-          .info("Moving processed file " + fileName + " to dir " + processedDir + " by action to take for post " +
+          .info("Moving processed file " + fileName + " to dir " + sourceHelper.getOutPutDirectory + " by action to take for post " +
             "process file is move.")
       }
     } else {
@@ -330,7 +311,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
             .getName.getBaseName)
         ()
       case _ => actionToTake match {
-        case "move" => moveFile(processedDir, file)
+        case "move" => moveFile(sourceHelper.getOutPutDirectory, file)
         case "delete" => deleteFile(file)
         case _ =>
           LOG
@@ -341,5 +322,9 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       }
     }
   }
+
+  def getSourceName = sourceName
+  def getSourceHelper = sourceHelper
+  def getSourceVfsCounter = sourceVFScounter
 
 }
