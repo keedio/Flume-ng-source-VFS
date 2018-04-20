@@ -5,6 +5,7 @@ import java.util.concurrent._
 
 import org.apache.commons.vfs2._
 import org.apache.commons.vfs2.impl.DefaultFileMonitor
+import org.keedio.flume.source.vfs.config.SourceHelper
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.ListBuffer
@@ -16,11 +17,15 @@ import scala.util.matching.Regex
   * Keedio
   */
 
-class WatchablePath(uri: String, refresh: Int, start: Int, regex: Regex, fileObject: FileObject, listener:
-StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
+class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: StateListener,
+                    sourceName: String, sourceHelper: SourceHelper) {
 
   val LOG: Logger = LoggerFactory.getLogger(classOf[WatchablePath])
 
+  private val includePattern: Regex = sourceHelper.getPatternFilesMatch
+  private val processDiscovered = sourceHelper.getProcessFilesDiscovered
+  private val timeOut: Integer = sourceHelper.getTimeoutProcessFiles
+  private val recursiveSearch = sourceHelper.getRecursiveSearchDirectory
   //list of susbcribers(observers) for changes in fileObject
   private val listeners: ListBuffer[StateListener] = new ListBuffer[StateListener]
   private val children: Array[FileObject] = fileObject.getChildren
@@ -39,21 +44,21 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
 
     override def fileChanged(fileChangeEvent: FileChangeEvent): Unit = {
       val eventChanged: StateEvent = new StateEvent(fileChangeEvent, State.ENTRY_MODIFY)
-      if ((isValidFilenameAgainstRegex(eventChanged)) && (isEventValidStatus(eventChanged))) {
+      if (isValidFilenameAgainstRegex(eventChanged) && isEventValidStatus(eventChanged)) {
         fireEvent(eventChanged)
       }
     }
 
     override def fileCreated(fileChangeEvent: FileChangeEvent): Unit = {
       val eventCreate: StateEvent = new StateEvent(fileChangeEvent, State.ENTRY_CREATE)
-      if ((isValidFilenameAgainstRegex(eventCreate)) && (isEventValidStatus(eventCreate))) {
+      if (isValidFilenameAgainstRegex(eventCreate) && isEventValidStatus(eventCreate)) {
         fireEvent(eventCreate)
       }
     }
 
     override def fileDiscovered(fileChangeEvent: FileChangeEvent): Unit = {
       val eventDiscovered: StateEvent = new StateEvent(fileChangeEvent, State.ENTRY_DISCOVER)
-      if ((isValidFilenameAgainstRegex(eventDiscovered)) && (isEventValidStatus(eventDiscovered))) {
+      if (isValidFilenameAgainstRegex(eventDiscovered) && isEventValidStatus(eventDiscovered)) {
         fireEvent(eventDiscovered)
       }
     }
@@ -62,16 +67,25 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
   //Thread based polling file system monitor with a 1 second delay.
   private val defaultMonitor: DefaultFileMonitor = new DefaultFileMonitor(fileListener)
   defaultMonitor.setDelay(secondsToMiliseconds(refresh))
-  defaultMonitor.setRecursive(true)
-  defaultMonitor.addFile(fileObject)
+
+  ///defaultMonitor.setRecursive(recursiveSearch) --> has no effect ( JIRA-VFS-569)
+  if (sourceHelper.getRecursiveSearchDirectory) {
+    defaultMonitor.addFile(fileObject)
+  } else {
+    val folders: List[FileObject] = children.toList.filter(_.isFolder)
+    defaultMonitor.addFile(fileObject)
+    folders.foreach(folder => defaultMonitor.removeFile(folder))
+  }
 
   processDiscovered match {
     case true =>
-      children.foreach(child => fileListener.fileDiscovered(new FileChangeEvent(child)))
-      LOG
-        .info("Source " + sourceName + " has property 'process.discovered.files' set to " + processDiscovered + ", " +
-          "process files that exists " +
-          "before start source.")
+      if (sourceHelper.getRecursiveSearchDirectory) {
+          processDiscover(children.toList)
+      } else {
+          processDiscover(children.toList.filter(_.isFile))
+              }
+          LOG.info("Source " + sourceName + " has property 'process.discovered.files' set to " + processDiscovered +
+            ",process files that exists before start source.")
     case false =>
       LOG
         .info("Source " + sourceName + " has property 'process.discovered.files' set to " + processDiscovered + ", do" +
@@ -86,7 +100,7 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
   //Creates and executes a one-shot action that becomes enabled after the given delay
   private val tasks: ScheduledFuture[_] = scheduler.schedule(
     getTaskToSchedule(),
-    timeOut,
+    start,
     TimeUnit.SECONDS
   )
 
@@ -107,7 +121,7 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
     */
   def isValidFilenameAgainstRegex(stateEvent: StateEvent) = {
     val fileName: String = stateEvent.getFileChangeEvent.getFile.getName.getBaseName
-    regex.findFirstIn(fileName).isDefined
+    includePattern.findFirstIn(fileName).isDefined
   }
 
   /**
@@ -166,18 +180,18 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
   def isEventValidStatus(event: StateEvent): Boolean = {
     var status = true
     if (!event.getFileChangeEvent.getFile.exists()) {
-      LOG.error("File for event " + event.getState + " not exists.")
-      status = false
+      LOG.warn("File for event " + event.getState + " not exists.")
+      return false
     }
 
     if (!event.getFileChangeEvent.getFile.isReadable) {
-      LOG.error(event.getFileChangeEvent.getFile.getPublicURIString + " is not readable.")
-      status = false
+      LOG.warn(event.getFileChangeEvent.getFile.getPublicURIString + " is not readable.")
+      return false
     }
 
     if (!event.getFileChangeEvent.getFile.isFile) {
-      LOG.error(event.getFileChangeEvent.getFile.getName.getBaseName + " is not a regular file.")
-      status = false
+      LOG.warn(event.getFileChangeEvent.getFile.getName.getBaseName + " is not a regular file.")
+      return false
     }
 
     val fileName = event.getFileChangeEvent.getFile.getName.getBaseName
@@ -185,7 +199,7 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
     val lastModifiedTime = file.getContent.getLastModifiedTime
     val lastModifiedTimeAccuracy = file.getFileSystem.getLastModTimeAccuracy
 
-    timeOut match {
+    timeOut.toInt match {
       case 0 => status = true
       case _ =>
         val accurateTimeout = adjustTimeout(lastModifiedTimeAccuracy, timeOut)
@@ -260,5 +274,21 @@ StateListener, processDiscovered: Boolean, sourceName: String, timeOut: Int) {
 
     adjustedTimeout
   }
+
+/**
+* Iterate over element of subfolders
+* @param children
+  */
+  def processDiscover(children: List[FileObject]) {
+      children.foreach(child => {
+        if (child.isFile) {
+          fileListener.fileDiscovered(new FileChangeEvent(child))
+        } else if (child.isFolder) {
+          processDiscover(child.getChildren.toList)
+        }
+      }
+      )
+  }
+
 
 }
