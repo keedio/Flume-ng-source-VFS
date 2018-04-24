@@ -71,6 +71,7 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
   ///defaultMonitor.setRecursive(recursiveSearch) --> has no effect ( JIRA-VFS-569)
   if (sourceHelper.getRecursiveSearchDirectory) {
     defaultMonitor.addFile(fileObject)
+    addSufolderOnStart(fileObject.getChildren.toList)
   } else {
     val folders: List[FileObject] = children.toList.filter(_.isFolder)
     defaultMonitor.addFile(fileObject)
@@ -80,12 +81,12 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
   processDiscovered match {
     case true =>
       if (sourceHelper.getRecursiveSearchDirectory) {
-          processDiscover(children.toList)
+        processDiscover(children.toList)
       } else {
-          processDiscover(children.toList.filter(_.isFile))
-              }
-          LOG.info("Source " + sourceName + " has property 'process.discovered.files' set to " + processDiscovered +
-            ",process files that exists before start source.")
+        processDiscover(children.toList.filter(_.isFile))
+      }
+      LOG.info("Source " + sourceName + " has property 'process.discovered.files' set to " + processDiscovered +
+        ",process files that exists before start source.")
     case false =>
       LOG
         .info("Source " + sourceName + " has property 'process.discovered.files' set to " + processDiscovered + ", do" +
@@ -275,20 +276,35 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
     adjustedTimeout
   }
 
-/**
-* Iterate over element of subfolders
-* @param children
-  */
+  /**
+    * Iterate over element of subfolders
+    *
+    * @param children
+    */
   def processDiscover(children: List[FileObject]) {
-      children.foreach(child => {
-        if (child.isFile) {
-          fileListener.fileDiscovered(new FileChangeEvent(child))
-        } else if (child.isFolder) {
-          processDiscover(child.getChildren.toList)
-        }
+    children.foreach(child => {
+      if (child.isFile) {
+        fileListener.fileDiscovered(new FileChangeEvent(child))
+      } else if (child.isFolder) {
+        processDiscover(child.getChildren.toList)
       }
-      )
+    }
+    )
   }
 
+  /**
+    * iterate over folders and add them to monitor.
+    *
+    * @param children
+    */
+  def addSufolderOnStart(children: List[FileObject]) {
+    children.foreach(child => {
+      if (child.isFolder) {
+        defaultMonitor.addFile(child)
+        addSufolderOnStart(child.getChildren.toList)
+      }
+    }
+    )
+  }
 
 }
