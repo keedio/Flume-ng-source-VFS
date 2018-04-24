@@ -67,7 +67,7 @@ agent.sources.local1.processed.dir = /home/flume/processed
 agent.sources.local1.process.discovered.files = false
 agent.sources.local1.timeout.start.process = 30
 agent.sources.local1.post.process.file = move
-agens.our.ces.local1.status.file.dir = /home/flume/status_local1
+agent.sources.local1.status.file.dir = /home/flume/status_local1
 
 
 
