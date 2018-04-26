@@ -151,13 +151,26 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     sourceName = this.getName
     sourceHelper = new SourceHelper(context, sourceName)
     sourceVFScounter = new SourceCounterVfs("SOURCE." + sourceName)
-    LOG.info("Source " + sourceName + " watching path : " + sourceHelper.getWorkingDirectory + " and pattern " + sourceHelper.getPatternFilesMatch)
+    LOG.info("Source " + sourceName + " watching path : " + sourceHelper
+      .getWorkingDirectory + " and pattern " + sourceHelper.getPatternFilesMatch)
+
     if (sourceHelper.getOutPutDirectory == "") {
       LOG.info("Property 'prcocess.dir', not set, files will not be moved after processing.")
     }
+
     if (Files.exists(Paths.get(sourceHelper.getStatusFile))) {
-      mapOfFiles = loadMap(sourceHelper.getStatusFile)
+      val bck: Path = Paths.get(Paths.get(sourceHelper.getStatusFile).toString + ".bck")
+      Files.copy(Paths.get(sourceHelper.getStatusFile), bck)
+      try {
+        mapOfFiles = loadMap(sourceHelper.getStatusFile)
+      } catch {
+        case ex: StreamCorruptedException =>
+          LOG.warn("When trying to load map of files. Recovering from backup", ex)
+          Files.copy(bck, Paths.get(sourceHelper.getStatusFile))
+          mapOfFiles = loadMap(sourceHelper.getStatusFile)
+      }
     }
+
   }
 
   override def start(): Unit = {
@@ -273,7 +286,8 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       file.moveTo(fileDest)
       if (fileDest.exists()) {
         LOG
-          .info("Moving processed file " + fileName + " to dir " + sourceHelper.getOutPutDirectory + " by action to take for post " +
+          .info("Moving processed file " + fileName + " to dir " + sourceHelper
+            .getOutPutDirectory + " by action to take for post " +
             "process file is move.")
       }
     } else {
@@ -324,7 +338,9 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
   }
 
   def getSourceName = sourceName
+
   def getSourceHelper = sourceHelper
+
   def getSourceVfsCounter = sourceVFScounter
 
 }
