@@ -27,6 +27,7 @@ class SourceHelper(context: Context, sourceName: String) {
 
   private val statusFilePath = context.getString(PATH_TO_STATUS_FILE, DEFAULT_PATH_TO_STATUS_FILE)
   private val recursiveSearch = context.getBoolean(RECURSIVE_DIRECTORY_SEARCH, DEFAULT_RECURSIVE_DIRECTORY_SEARCH)
+  private val keepFilesInMap = context.getBoolean(RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS, DEFAULT_RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS)
 
   def getWorkingDirectory: String = workingDirectory
 
@@ -34,7 +35,7 @@ class SourceHelper(context: Context, sourceName: String) {
 
   def getPatternFilesMatch: Regex = patternFilesMatch.r
 
-  def getProcessFilesDiscovered: Boolean = processFilesDiscovered
+  def isProcessFilesDiscovered: Boolean = processFilesDiscovered
 
   def getTimeoutProcessFiles: Integer = timeoutProcessFiles
 
@@ -46,7 +47,9 @@ class SourceHelper(context: Context, sourceName: String) {
     Paths.get(pathTo.toString, statusFileName).toString
   }
 
-  def getRecursiveSearchDirectory: Boolean = recursiveSearch
+  def isRecursiveSearchDirectory: Boolean = recursiveSearch
+  def isKeepFilesInMap: Boolean = keepFilesInMap
+
 
 }
 
