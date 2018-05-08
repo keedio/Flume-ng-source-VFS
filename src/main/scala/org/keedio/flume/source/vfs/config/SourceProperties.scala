@@ -33,5 +33,7 @@ object SourceProperties {
   val RECURSIVE_DIRECTORY_SEARCH = "recursive.directory.search"
   val DEFAULT_RECURSIVE_DIRECTORY_SEARCH = true
 
+  val RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS = "keep.deleted.files.in.map"
+  val DEFAULT_RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS = false
 
 }

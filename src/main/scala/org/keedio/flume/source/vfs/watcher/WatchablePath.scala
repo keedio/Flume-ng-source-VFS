@@ -23,9 +23,9 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
   val LOG: Logger = LoggerFactory.getLogger(classOf[WatchablePath])
 
   private val includePattern: Regex = sourceHelper.getPatternFilesMatch
-  private val processDiscovered = sourceHelper.getProcessFilesDiscovered
+  private val processDiscovered = sourceHelper.isProcessFilesDiscovered
   private val timeOut: Integer = sourceHelper.getTimeoutProcessFiles
-  private val recursiveSearch = sourceHelper.getRecursiveSearchDirectory
+  private val recursiveSearch = sourceHelper.isRecursiveSearchDirectory
   //list of susbcribers(observers) for changes in fileObject
   private val listeners: ListBuffer[StateListener] = new ListBuffer[StateListener]
   private val children: Array[FileObject] = fileObject.getChildren
@@ -39,6 +39,7 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
         fireEvent(eventDelete)
         val fs = fileObject.getFileSystem
         fs.removeListener(fileChangeEvent.getFile, this)
+        fs.getFileSystemManager.getFilesCache.removeFile(fs, fileChangeEvent.getFile.getName)
       }
     }
 
@@ -69,7 +70,7 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
   defaultMonitor.setDelay(secondsToMiliseconds(refresh))
 
   ///defaultMonitor.setRecursive(recursiveSearch) --> has no effect ( JIRA-VFS-569)
-  if (sourceHelper.getRecursiveSearchDirectory) {
+  if (sourceHelper.isRecursiveSearchDirectory) {
     defaultMonitor.addFile(fileObject)
     addSufolderOnStart(fileObject.getChildren.toList)
   } else {
@@ -80,7 +81,7 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
 
   processDiscovered match {
     case true =>
-      if (sourceHelper.getRecursiveSearchDirectory) {
+      if (sourceHelper.isRecursiveSearchDirectory) {
         processDiscover(children.toList)
       } else {
         processDiscover(children.toList.filter(_.isFile))
@@ -180,54 +181,53 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
     */
   def isEventValidStatus(event: StateEvent): Boolean = {
     var status = true
-    if (!event.getFileChangeEvent.getFile.exists()) {
-      LOG.warn("File for event " + event.getState + " not exists.")
-      return false
-    }
-
-    if (!event.getFileChangeEvent.getFile.isReadable) {
-      LOG.warn(event.getFileChangeEvent.getFile.getPublicURIString + " is not readable.")
-      return false
-    }
-
-    if (!event.getFileChangeEvent.getFile.isFile) {
-      LOG.warn(event.getFileChangeEvent.getFile.getName.getBaseName + " is not a regular file.")
-      return false
-    }
-
-    val fileName = event.getFileChangeEvent.getFile.getName.getBaseName
     val file: FileObject = event.getFileChangeEvent.getFile
-    val lastModifiedTime = file.getContent.getLastModifiedTime
-    val lastModifiedTimeAccuracy = file.getFileSystem.getLastModTimeAccuracy
 
-    timeOut.toInt match {
-      case 0 => status = true
-      case _ =>
-        val accurateTimeout = adjustTimeout(lastModifiedTimeAccuracy, timeOut)
+    if (!file.exists()) {
+      LOG.warn("Event " + event.getState + " was triggered with file name " + event.getFileChangeEvent.getFile.getName
+        .getBaseName + " but file not exists.")
+      status = false
+    } else if (!file.isReadable) {
+      LOG.warn(event.getFileChangeEvent.getFile.getPublicURIString + " is not readable.")
+      status = false
+    } else if (!file.isFile) {
+      LOG.warn(event.getFileChangeEvent.getFile.getName.getBaseName + " is not a regular file.")
+      status = false
+    } else  {
 
-        if (lastModifiedTimeExceededTimeout(lastModifiedTime, accurateTimeout)) {
-          LOG
-            .info("File " + fileName + " could be still being written or timeout may be too high, do not process yet." +
-              " File will be checked in " + accurateTimeout + " seconds.")
-          val schedulerDelay: ScheduledExecutorService = Executors.newScheduledThreadPool(corePoolSize)
-          //Creates and executes a one-shot action that becomes enabled after the given delay
-          schedulerDelay.schedule(
-            new Runnable {
-              override def run(): Unit = {
-                val updateModified = fileObject.resolveFile(fileName).getContent.getLastModifiedTime
-                if (lastModifiedTimeExceededTimeout(updateModified, accurateTimeout)) {
-                  status = false
-                } else {
-                  LOG.info("File " + fileName + " reached threshold last modified time, send to process.")
-                  fileListener.fileCreated(new FileChangeEvent(file))
+      val fileName = event.getFileChangeEvent.getFile.getName.getBaseName
+      val lastModifiedTime = file.getContent.getLastModifiedTime
+      val lastModifiedTimeAccuracy = file.getFileSystem.getLastModTimeAccuracy
+
+      timeOut.toInt match {
+        case 0 => status = true
+        case _ =>
+          val accurateTimeout = adjustTimeout(lastModifiedTimeAccuracy, timeOut)
+
+          if (lastModifiedTimeExceededTimeout(lastModifiedTime, accurateTimeout)) {
+            LOG
+              .info("File " + fileName + " could be still being written or timeout may be too high, do not process yet." +
+                " File will be checked in " + accurateTimeout + " seconds.")
+            val schedulerDelay: ScheduledExecutorService = Executors.newScheduledThreadPool(corePoolSize)
+            //Creates and executes a one-shot action that becomes enabled after the given delay
+            schedulerDelay.schedule(
+              new Runnable {
+                override def run(): Unit = {
+                  val updateModified = fileObject.resolveFile(fileName).getContent.getLastModifiedTime
+                  if (lastModifiedTimeExceededTimeout(updateModified, accurateTimeout)) {
+                    status = false
+                  } else {
+                    LOG.info("File " + fileName + " reached threshold last modified time, send to process.")
+                    fileListener.fileCreated(new FileChangeEvent(file))
+                  }
                 }
-              }
-            },
-            accurateTimeout,
-            TimeUnit.SECONDS
-          )
-          status = false
-        }
+              },
+              accurateTimeout,
+              TimeUnit.SECONDS
+            )
+            status = false
+          }
+      }
     }
     status
   }
