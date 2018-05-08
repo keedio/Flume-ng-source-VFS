@@ -46,7 +46,10 @@ mvn clean package
 # local1: process files in local directory called incoming_1. Files will be processed when 30 seconds
 #         have elapsed since the atributte lastmodifiedtime of the file has changed. Files to be processed must have
 #         extension "txt". If flume starts and incoming_1 already contains files, do not process them (discovered).
-#         When finish processing , move file to 'processed.dir'.
+#         When finish processing , move file to 'processed.dir'. Only source local1 will keep satus file for tracking
+#         processed files under path /home/flume/status_local1. The name of the file is local1.ser  (<sourcename>.ser)
+#         The other sources will keep its status file under temporal folder (default)
+
 
 
 
@@ -56,6 +59,7 @@ agent.sources =  local1 local2 ftp1
 
 
 ## A source called local1 is retrieving files from local filesystem
+
 agent.sources.local1.type = org.keedio.flume.source.vfs.source.SourceVFS
 agent.sources.local1.work.dir = /home/flume/incoming_1
 agent.sources.local1.includePattern = \\.*.txt
@@ -63,16 +67,23 @@ agent.sources.local1.processed.dir = /home/flume/processed
 agent.sources.local1.process.discovered.files = false
 agent.sources.local1.timeout.start.process = 30
 agent.sources.local1.post.process.file = move
+agent.sources.local1.status.file.dir = /home/flume/status_local1
+
+
 
 ## A source called local2 is retrieving files from local filesystem
+
 agent.sources.local2.type = org.keedio.flume.source.vfs.source.SourceVFS
 agent.sources.local2.work.dir = /home/flume/incoming_2
-agent.sources.local2.includePattern = \\.*.txt
+agent.sources.local2.includePattern = \\.*.csv
 agent.sources.local2.processed.dir = /home/flume/processed
 agent.sources.local2.process.discovered.files = true
 agent.sources.local2.post.process.file = delete
 
-## A source called ftp1 is retrieving files from a remote FTP filysystem
+
+
+## A source called ftp1 is retrieving files from a remote FTP filesystem
+
 agent.sources.ftp1.type = org.keedio.flume.source.vfs.source.SourceVFS
 agent.sources.ftp1.work.dir = ftp://user:pass@192.168.0.3/incoming
 agent.sources.ftp1.includePattern = \\.*.remote.txt
@@ -105,23 +116,32 @@ agent.sources.ftp1.post.process.file = move
 |processed.dir|if property set, files processed will be moved to dir (path for out files)|no|-|/home/flume/out, remember check for permissions
 |process.discovered.files|process files that were in incoming before launching|no|true|true or false|
 |timeout.start.process|Process file if 'timeout' seconds have passed since the last modification of the file. Intended for huge files being downloaded to incoming with high network latency. |no|- |For example 60 (seconds), The timeout set by this property is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
-|post.process.file|If file is successfully processed by source, move or delete|no|-|move or delete. Rememeber to check for permissions. If move files is set but target directory does not exists, file will not be moved.|
+|post.process.file|If file is successfully processed by source, move or delete|no| do nothing, file remains in incoming.|move or delete. Rememeber to check for permissions. If move files is set but target directory does not exists, file will not be moved.|
+|status.file.dir|Directory where a status file called \'\<sourcename>.ser\' will be created for keeping track of processed files.|no|temporal folder|The serialized information is a simple map of filename vs size |
+|keep.deleted.files.in.map|When file has been processed it can be deleted or moved. In such a case the default behavior is to stop tracking the file removing the file's name from the map.|no|false|If true, a file processed and deleted will not be reprocessed. |
+|recursive.directory.search|descend in flume's incoming subdirectories for processing files|no|true| [Wiki](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#april-20-2018)|
 
 ## Notes on usage.
-+ When scanning for files in 'work.dir', files in subdirectories will also be cached and processed. At the moment (0.2.0), it is not configurable.
 + In some use cases, files to be processed by flume are not yet completed (full content) while downloading to incoming, i.e., the file have already started being processing and at the same moment new lines are being appended. Flume-vfs treats this lines like modifications over a file already cached, processing them in normal way. If network latency is high it can cause issues like truncated data, even with small files. For this cases use parameter timeout.start.process.
-+ If a file haven been correctly processed, it's name and size are tracked in an external file than is reloaded when flume is restarted. This file is saved on temporal directory. Actually it is not configurable. If flume stops and a file is not yet finished processing, the file will be processed again since start, producing repeated messages.
++ If a file haven been correctly processed, it's name and size are tracked in an external file than is reloaded when flume is restarted. This file is saved on temporal directory. If flume stops and a file is not yet finished processing, the file will be processed again since start, producing repeated messages.
++ When a file has been processed by flume, by default file will remain in directory "incoming", unless an action to take has been set via property 'post.process.file'. In such a case, if file is moved or deleted, the file's name will be removed from the tracking map. If for some reason the same file reappears in flumes's incoming the file will be reprocessed again producing duplicated events. Setting to true 'keep.deleted.files.in.map' will avoid such a use case.
 
 ## Notes on supported and tested file systems ##
 
 | Scheme | Observations |
 | ------ | ------ |
-|  ftp  |   In most cases the ftp client will be behind a FW so Passive Mode is set to true by default. Active mode is not working in actual version. Anyway, if you need explicitly Active mode just set in source code `setPassiveMode(options, false)`.
+|  ftp  |   In most cases the ftp client will be behind a FW so Passive Mode is set to true by default. Active mode is not working in actual version. Anyway, if you need explicitly Active mode just set in source code `setPassiveMode(options, false)`. Actually not configurable via properties.|
 
 ## Wiki
  [Documentation Flume-ng-source-VFS](https://github.com/keedio/Flume-ng-source-VFS/wiki)
 
 ### Version history #####
+- 0.3.0
+    + Recursive search directory is configurable. (Check out for more information in wiki [Issues found](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#issues-found) )
+    + Directory for keeping track of processed files is configurable.
+    + Keep deleted files in map is configurable.
+    + Several improvements and fix minor bugs. [+ info](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#issues-found)
+
 - 0.2.1
     + New configurable parameter for setting an action to take when file has been successfully processed. Move or delete.
 - 0.2.0

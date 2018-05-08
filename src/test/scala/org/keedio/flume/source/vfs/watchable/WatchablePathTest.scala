@@ -7,7 +7,9 @@ import java.util.{Calendar, Date}
 import org.apache.commons.vfs2._
 import org.apache.commons.vfs2.impl.StandardFileSystemManager
 import org.junit._
+import org.keedio.flume.source.vfs.config.SourceHelper
 import org.keedio.flume.source.vfs.watcher._
+import org.mockito.Mockito
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.util.matching.Regex
@@ -46,8 +48,12 @@ class WatchablePathTest {
       }
     }
 
-    val watchable = new WatchablePath(csvDir, refreshTime, startTime, csvRegex, fs
-      .resolveFile(csvDir), listener, false, "sourcename", 0)
+    val sourceHelper = Mockito.mock(classOf[SourceHelper])
+    Mockito.when(sourceHelper.getWorkingDirectory).thenReturn(csvDir)
+    Mockito.when(sourceHelper.getPatternFilesMatch).thenReturn(csvRegex)
+
+    val watchable = new WatchablePath(refreshTime, startTime, fs
+      .resolveFile(csvDir), listener, "sourcename", sourceHelper)
     conditionsGenerator(10, 2000) //(10 iterations * 2 seconds)
 
   }
@@ -80,8 +86,12 @@ class WatchablePathTest {
       }
     }
 
-    val watchable = new WatchablePath(csvDir, refreshTime, startTime, csvRegex, fs
-      .resolveFile(csvDir), listener, true, "sourcename", 0)
+    val sourceHelper = Mockito.mock(classOf[SourceHelper])
+    Mockito.when(sourceHelper.getWorkingDirectory).thenReturn(csvDir)
+    Mockito.when(sourceHelper.getPatternFilesMatch).thenReturn(csvRegex)
+
+    val watchable = new WatchablePath(refreshTime, startTime, fs
+      .resolveFile(csvDir), listener, "sourcename", sourceHelper)
 
     try {
       for (i <- 1 to 5) {
