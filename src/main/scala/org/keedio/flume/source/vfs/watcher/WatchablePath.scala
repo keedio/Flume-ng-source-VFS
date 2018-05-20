@@ -17,7 +17,7 @@ import scala.util.matching.Regex
   * Keedio
   */
 
-class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: StateListener,
+class WatchablePath( fileObject: FileObject, listener: StateListener,
                     sourceName: String, sourceHelper: SourceHelper) {
 
   val LOG: Logger = LoggerFactory.getLogger(classOf[WatchablePath])
@@ -65,9 +65,10 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
     }
   }
 
-  //Thread based polling file system monitor with a 1 second delay.
+  //Thread based polling file system monitor with a refresh second delay.
   private val defaultMonitor: DefaultFileMonitor = new DefaultFileMonitor(fileListener)
-  defaultMonitor.setDelay(secondsToMiliseconds(refresh))
+  defaultMonitor.setDelay(secondsToMiliseconds(sourceHelper.getDelayBetweenRuns))
+  defaultMonitor.setChecksPerRun(sourceHelper.getMaxFilesCheckPerRun)
 
   ///defaultMonitor.setRecursive(recursiveSearch) --> has no effect ( JIRA-VFS-569)
   if (sourceHelper.isRecursiveSearchDirectory) {
@@ -102,7 +103,7 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
   //Creates and executes a one-shot action that becomes enabled after the given delay
   private val tasks: ScheduledFuture[_] = scheduler.schedule(
     getTaskToSchedule(),
-    start,
+    2,
     TimeUnit.SECONDS
   )
 

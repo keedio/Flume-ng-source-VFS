@@ -52,7 +52,7 @@ class WatchablePathTest {
     Mockito.when(sourceHelper.getWorkingDirectory).thenReturn(csvDir)
     Mockito.when(sourceHelper.getPatternFilesMatch).thenReturn(csvRegex)
 
-    val watchable = new WatchablePath(refreshTime, startTime, fs
+    val watchable = new WatchablePath(fs
       .resolveFile(csvDir), listener, "sourcename", sourceHelper)
     conditionsGenerator(10, 2000) //(10 iterations * 2 seconds)
 
@@ -90,7 +90,7 @@ class WatchablePathTest {
     Mockito.when(sourceHelper.getWorkingDirectory).thenReturn(csvDir)
     Mockito.when(sourceHelper.getPatternFilesMatch).thenReturn(csvRegex)
 
-    val watchable = new WatchablePath(refreshTime, startTime, fs
+    val watchable = new WatchablePath( fs
       .resolveFile(csvDir), listener, "sourcename", sourceHelper)
 
     try {

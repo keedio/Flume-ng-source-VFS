@@ -36,4 +36,15 @@ object SourceProperties {
   val RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS = "keep.deleted.files.in.map"
   val DEFAULT_RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS = false
 
+  val DELAY_BETWEEN_FILEMONITOR_RUNS = "delay.between.runs"
+  val DEFAULT_DELAY_BETWEEN_FILEMONITOR_RUNS = 10
+
+  val MAX_FILES_CHECK_PER_RUN = "files.check.per.run"
+  val DEFAULT_FILES_CHECK_PER_RUN = 1000
+
+
+
+
+
+
 }
