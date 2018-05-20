@@ -26,11 +26,12 @@ import scala.collection.mutable
 class SourceVFS extends AbstractSource with Configurable with EventDrivenSource {
 
   val LOG: Logger = LoggerFactory.getLogger(classOf[SourceVFS])
-  private var mapOfFiles = mutable.HashMap[String, (Long,Long)]()
+  private var mapOfFiles = mutable.HashMap[String, (Long, Long, Long, String)]()
   private var sourceVFScounter = new org.keedio.flume.source.vfs.metrics.SourceCounterVfs("")
   private val executor: ExecutorService = Executors.newFixedThreadPool(10)
   private var sourceName: String = ""
   private var sourceHelper: SourceHelper = _
+  private var totalLines: Long = 0L
 
   val listener = new StateListener {
     override def statusReceived(event: StateEvent): Unit = {
@@ -40,89 +41,118 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
             override def run(): Unit = {
               val file: FileObject = event.getFileChangeEvent.getFile
               val fileName = file.getName.getBaseName
+              val fileContent = file.getContent
+              val inputStream = fileContent.getInputStream
+              val fileSize = fileContent.getSize
               if (mapOfFiles.contains(fileName)) {
-                LOG.info("File  " + fileName + " was already processed, do nothing !. If desired behavior is to reprocess "
-                + "file, set property " + SourceProperties.RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS + " to false (or just remove property).")
+                LOG
+                  .info("File  " + fileName + " was already processed, do nothing !. If desired behavior is to " +
+                    "reprocess "
+                    + "file, set property " + SourceProperties
+                    .RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS + " to false (or just remove property).")
               } else {
                 LOG.info("Source " + sourceName + " received event: " + event.getState
                   .toString() + " file " + fileName)
-                val fileSize = event.getFileChangeEvent.getFile.getContent.getSize
-                val inputStream = event.getFileChangeEvent.getFile.getContent.getInputStream
                 LOG.info(Thread.currentThread().getName + " started processing new file: " + fileName)
-                if (readStream(inputStream, fileName, 0L)) {
+                mapOfFiles += (fileName -> (0L, 0L, 0L, event.getState.toString()))
+                val linesRead =  readStreamLines(inputStream, fileName, 0L)
+                if (linesRead != 0) {
                   LOG.info("End processing new file: " + fileName)
                   val lastModifiedTime = file.getContent.getLastModifiedTime
-                  mapOfFiles += (fileName -> (fileSize, lastModifiedTime))
+                  mapOfFiles += (fileName -> (linesRead, lastModifiedTime, fileSize, "available"))
                   saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
                   sourceVFScounter.incrementFilesCount()
                   sourceVFScounter.incrementCountSizeProc(fileSize)
                   postProcessFile(sourceHelper.getActionToTakeAfterProcessingFiles, file)
+                } else {
+                  LOG.info("lines read " + linesRead + " do nothing")
                 }
               }
             }
           }
           executor.execute(thread)
-        } //entry_create
+        }
 
         case "entry_modify" => {
           val thread = new Thread() {
             override def run(): Unit = {
-              val file = event.getFileChangeEvent.getFile
+              val file: FileObject = event.getFileChangeEvent.getFile
               val fileName = file.getName.getBaseName
+              val fileContent = file.getContent
+              val inputStream = fileContent.getInputStream
+              val fileSize = fileContent.getSize
               val lastModifiedTime = file.getContent.getLastModifiedTime
               LOG.info("Source " + sourceName + " received event: " + event.getState
                 .toString() + " file " + fileName)
-              val fileSize = event.getFileChangeEvent.getFile.getContent.getSize
-              val inputStream = event.getFileChangeEvent.getFile.getContent.getInputStream
-              val filesValue = mapOfFiles.getOrElse(fileName, (0L, 0L))
-              val prevSize = filesValue._1
+              val filesValue = mapOfFiles.getOrElse(fileName, (0L, 0L, 0L, "available"))
+              val prevLinesRead = filesValue._1
               val prevModifiedTime = filesValue._2
-              if (prevSize == fileSize && lastModifiedTime == prevModifiedTime) {
-                LOG.info("File exists in map of files, previous size of file is " + prevSize + " " + Thread
-                  .currentThread().getName + " nothing to do, file remains unchanged " + fileName)
-                Unit
-              } else if (prevSize == fileSize && lastModifiedTime != prevModifiedTime){
-                LOG.info("File exists in map of files, size is the same but lastModifiedTime changed " + Thread
-                  .currentThread().getName +
-                  " started processing modified file: " + fileName)
-                if (readStream(inputStream, fileName, 0L)) {
-                  LOG.info("End processing modified file: " + fileName)
-                  mapOfFiles -= fileName
-                  mapOfFiles += (fileName -> (fileSize, lastModifiedTime))
-                  saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
-                }
-              } else {
-                val aux = fileSize > prevSize match {
-                  case true => prevSize
-                  case false => 0L
-                }
-                LOG.info("File exists in map of files, previous size of file is " + prevSize + " " + Thread
-                  .currentThread().getName +
-                  " started processing modified file: " + fileName)
-                if (readStream(inputStream, fileName, aux)) {
-                  LOG.info("End processing modified file: " + fileName)
-                  mapOfFiles -= fileName
-                  mapOfFiles += (fileName -> (fileSize, lastModifiedTime))
-                  saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
-                }
+              val prevSize = filesValue._3
+              val available: String = filesValue._4
+              available match {
+
+                case "available" =>
+
+                  if (prevSize == fileSize && lastModifiedTime == prevModifiedTime) {
+                    LOG.info("File exists in map of files, previous size of file is " + prevSize + " " + Thread
+                      .currentThread().getName + " nothing to do, file remains unchanged " + fileName)
+                    Unit
+                  } else if (prevSize == fileSize && lastModifiedTime != prevModifiedTime) {
+                    LOG.info("File exists in map of files, size is the same but lastModifiedTime changed " + Thread
+                      .currentThread().getName +
+                      " started processing modified file: " + fileName)
+                    if (available == "available") {
+                      mapOfFiles += (fileName -> (0L, 0L, 0L, event.getState.toString()))
+                      if (readStream(inputStream, fileName, 0L)) {
+                        LOG.info("End processing modified file: " + fileName)
+                        mapOfFiles -= fileName
+                        mapOfFiles += (fileName -> (0L, lastModifiedTime, fileSize, "available"))
+                        saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
+                      }
+                    }
+                  } else {
+                    val aux = fileSize > prevSize match {
+                      case true => prevLinesRead
+                      case false => 0L
+                    }
+                    LOG.info("File exists in map of files, previous lines of file are " + prevLinesRead + " " + Thread
+                      .currentThread().getName +
+                      " started processing modified file: " + fileName)
+
+                    if (available == "available") {
+                      mapOfFiles += (fileName -> (0L, 0L, 0L, event.getState.toString()))
+                      val linesRead = readStreamLines(inputStream, fileName, aux)
+                      if (linesRead != 0) {
+                        LOG.info("End processing modified file: " + fileName)
+                        mapOfFiles -= fileName
+                        mapOfFiles += (fileName -> (linesRead + prevLinesRead, lastModifiedTime, fileSize, "available"))
+                        saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
+                      } else {
+                        LOG.info("lines read " + linesRead + " do nothing")
+                      }
+                    }
+                  }
+                case _ => LOG.info( "status " + available + " filename " + fileName)
               }
             }
           }
           executor.execute(thread)
-        } //entry_modify
+        }
 
         case "entry_delete" => {
           val thread: Thread = new Thread() {
             override def run(): Unit = {
               val file: FileObject = event.getFileChangeEvent.getFile
               val fileName = file.getName.getBaseName
-              if (! sourceHelper.isKeepFilesInMap) mapOfFiles -= fileName
+              if (!sourceHelper.isKeepFilesInMap) {
+                mapOfFiles -= fileName
+              }
               LOG.info("Source " + sourceName + " received event: " + event.getState
                 .toString() + " file " + fileName)
             }
           }
           executor.execute(thread)
-        } //entry_delete
+        }
 
         case "entry_discover" => {
           val thread = new Thread() {
@@ -130,16 +160,17 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
               val file: FileObject = event.getFileChangeEvent.getFile
               val fileName = file.getName.getBaseName
               val lastModifiedTime = file.getContent.getLastModifiedTime
+              val fileSize = file.getContent.getSize
+              val inputStream = file.getContent.getInputStream
               LOG.info("Source " + sourceName + " received event: " + event.getState
                 .toString() + " file " + fileName)
-              val fileSize = event.getFileChangeEvent.getFile.getContent.getSize
-              val inputStream = event.getFileChangeEvent.getFile.getContent.getInputStream
               mapOfFiles.get(fileName).isDefined match {
                 case false =>
                   LOG.info(Thread.currentThread().getName + " started processing file discovered: " + fileName)
-                  if (readStream(inputStream, fileName, 0)) {
+                  val linesRead = readStreamLines(inputStream, fileName, 0L)
+                  if (linesRead != 0) {
                     LOG.info("End processing discovered file: " + fileName)
-                    mapOfFiles += (fileName -> (fileSize, lastModifiedTime))
+                    mapOfFiles += (fileName -> (linesRead, lastModifiedTime, fileSize, "available"))
                     saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
                     sourceVFScounter.incrementFilesCount()
                     sourceVFScounter.incrementCountSizeProc(fileSize)
@@ -147,30 +178,45 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   }
 
                 case true => {
-                  val filesValue = mapOfFiles.getOrElse(fileName, (0L, 0L))
-                  val prevSize = filesValue._1
-                  if (prevSize == fileSize) {
+                  val filesValue = mapOfFiles.getOrElse(fileName, (0L, 0L, 0L, "available"))
+                  val prevLinesRead = filesValue._1
+                  val prevModifiedTime = filesValue._2
+                  val prevSize = filesValue._3
+                  if (prevSize == fileSize && lastModifiedTime == prevModifiedTime) {
                     LOG.info("File exists in map of files, previous size of file is " + prevSize + " " + Thread
                       .currentThread().getName + " nothing to do, file remains unchanged " + fileName)
                     Unit
-                  } else {
-                    LOG.info("File exists in map of files, previous size of file is " + prevSize + " " + Thread
+                  } else if (prevSize == fileSize && lastModifiedTime != prevModifiedTime) {
+                    LOG.info("File exists in map of files, size is the same but lastModifiedTime changed " + Thread
                       .currentThread().getName +
                       " started processing modified file: " + fileName)
-                    if (readStream(inputStream, fileName, prevSize)) {
-                      LOG.info("End processing modified file by discover event: " + fileName)
+                    if (readStream(inputStream, fileName, 0L)) {
+                      LOG.info("End processing modified file: " + fileName)
                       mapOfFiles -= fileName
-                      mapOfFiles += (fileName -> (fileSize, lastModifiedTime))
+                      mapOfFiles += (fileName -> (0L, fileSize, lastModifiedTime, "available"))
                       saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
                     }
+                  } else {
+                    LOG.info("File exists in map of files, previous lines of file are " + prevLinesRead + " " + Thread
+                      .currentThread().getName +
+                      " started processing modified file: " + fileName)
+                    val linesRead = readStreamLines(inputStream, fileName, prevLinesRead)
+                    if (linesRead != 0) {
+                      LOG.info("End processing modified file: " + fileName)
+                      mapOfFiles -= fileName
+                      mapOfFiles += (fileName -> (linesRead + prevLinesRead, lastModifiedTime, fileSize, "available"))
+                      saveMap(mapOfFiles, sourceHelper.getStatusFile, fileName, event.getState.toString())
+                    } else {
+                      LOG.info("lines read " + linesRead + " do nothing")
+                    }
+                    postProcessFile(sourceHelper.getActionToTakeAfterProcessingFiles, file)
                   }
-                  postProcessFile(sourceHelper.getActionToTakeAfterProcessingFiles, file)
                 }
               }
             }
           }
           executor.execute(thread)
-        } //entry_discover
+        }
 
         case _ => LOG.error("Received event is not register.")
       }
@@ -199,7 +245,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     sourceVFScounter.start
     val fileObject: FileObject = FileObjectBuilder.getFileObject(sourceHelper.getWorkingDirectory)
     val watchable = new WatchablePath(
-      5,
+      2,
       2,
       fileObject,
       listener,
@@ -250,13 +296,57 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     }
     inputStream.skip(size)
     val in: BufferedReader = new BufferedReader(new InputStreamReader(inputStream, Charset.defaultCharset()))
+    var lines = 0
 
     Stream.continually(in.readLine()).takeWhile(_ != null) foreach {
-      in => processMessage(in.getBytes(), filename)
+      in => {
+        lines += 1
+        processMessage(in.getBytes(), filename)
+      }
+    }
+    totalLines += lines
+    LOG.info("Total lines = " + lines + " per block , total is  " + totalLines)
+    in.close()
+    true
+  }
+
+  /**
+  * Read inputstream skipping lines long
+ *
+  * @param inputStream
+  * @param filename
+  * @param linesLong
+  * @return
+  */
+
+  def readStreamLines(inputStream: InputStream, filename: String, linesLong: Long): Long = {
+    if (inputStream == null) {
+      return 0L
+    }
+
+    var lines = 0L
+    var index = 0L
+
+    val in: BufferedReader = new BufferedReader(new InputStreamReader(inputStream, Charset.defaultCharset()))
+
+   while(index < linesLong  && in.readLine() != null) {
+     index += 1
+   }
+
+    Stream.continually(in.readLine()).takeWhile(_ != null) foreach {
+      in => {
+        lines += 1
+        processMessage(in.getBytes(), filename)
+      }
     }
 
     in.close()
-    true
+
+    if (LOG.isDebugEnabled) {
+      LOG.debug("Lines read " + lines + " from file: " + filename)
+    }
+
+    lines
   }
 
   /**
@@ -266,7 +356,9 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     * @param statusFile
     * @return
     */
-  def saveMap(mapOfFiles: mutable.Map[String, (Long, Long)], statusFile: String, fileName: String, state: String): Boolean = {
+  def saveMap(mapOfFiles: mutable.Map[String, (Long, Long, Long, String)], statusFile: String, fileName: String,
+              state: String):
+  Boolean = {
     val oos = new ObjectOutputStream(new FileOutputStream(statusFile))
     try {
       oos.writeObject(mapOfFiles)
@@ -286,17 +378,19 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     * @param statusFile
     * @return
     */
-  def loadMap(statusFile: String): mutable.HashMap[String, (Long, Long)] = {
+  def loadMap(statusFile: String): mutable.HashMap[String, (Long, Long, Long, String)] = {
     try {
       val ois = new ObjectInputStream(new FileInputStream(statusFile))
-      val mapOfFiles = ois.readObject().asInstanceOf[mutable.HashMap[String, (Long, Long)]]
+      val mapOfFiles = ois.readObject().asInstanceOf[mutable.HashMap[String, (Long, Long, Long, String)]]
       ois.close()
       LOG.info("Load from file system map of processed files. " + statusFile)
       mapOfFiles
     } catch {
-      case e : IOException =>
-        LOG.warn("Map of files is could not be loaded because file is corrupted for source " +  sourceName  +" . Generating new one.")
-        new mutable.HashMap[String, (Long, Long)]()
+      case e: IOException =>
+        LOG
+          .warn("Map of files is could not be loaded because file is corrupted for source " + sourceName + " . " +
+            "Generating new one.")
+        new mutable.HashMap[String, (Long, Long, Long, String)]()
     }
   }
 
@@ -309,7 +403,8 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
   def moveFile(processDir: String, file: FileObject): Unit = {
     val fileName = file.getName.getBaseName
     if (processDir != "" && FileObjectBuilder.getFileObject(sourceHelper.getOutPutDirectory).exists()) {
-      val fileDest: FileObject = FileObjectBuilder.getFileObject(sourceHelper.getOutPutDirectory + System.getProperty("file.separator") + fileName)
+      val fileDest: FileObject = FileObjectBuilder
+        .getFileObject(sourceHelper.getOutPutDirectory + System.getProperty("file.separator") + fileName)
       file.moveTo(fileDest)
       if (fileDest.exists()) {
         LOG
