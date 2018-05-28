@@ -69,6 +69,7 @@ class WatchablePath( fileObject: FileObject, listener: StateListener,
   private val defaultMonitor: DefaultFileMonitor = new DefaultFileMonitor(fileListener)
   defaultMonitor.setDelay(secondsToMiliseconds(sourceHelper.getDelayBetweenRuns))
   defaultMonitor.setChecksPerRun(sourceHelper.getMaxFilesCheckPerRun)
+  defaultMonitor.start()
 
   ///defaultMonitor.setRecursive(recursiveSearch) --> has no effect ( JIRA-VFS-569)
   if (sourceHelper.isRecursiveSearchDirectory) {
@@ -99,13 +100,6 @@ class WatchablePath( fileObject: FileObject, listener: StateListener,
 
   // the number of threads to keep in the pool, even if they are idle
   private val corePoolSize = 1
-  private val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(corePoolSize)
-  //Creates and executes a one-shot action that becomes enabled after the given delay
-  private val tasks: ScheduledFuture[_] = scheduler.schedule(
-    getTaskToSchedule(),
-    2,
-    TimeUnit.SECONDS
-  )
 
   /**
     * Call this method whenever you want to notify the event listeners about a
@@ -161,18 +155,6 @@ class WatchablePath( fileObject: FileObject, listener: StateListener,
     seconds * 1000
   }
 
-  /**
-    * Make a method runnable and schedule for one-shot
-    *
-    * @return
-    */
-  def getTaskToSchedule(): Runnable = {
-    new Runnable {
-      override def run(): Unit = {
-        defaultMonitor.start()
-      }
-    }
-  }
 
   /**
     * Condition for an stateEvent to be invalid
@@ -307,5 +289,7 @@ class WatchablePath( fileObject: FileObject, listener: StateListener,
     }
     )
   }
+
+  def getDefaultFilemonitor = defaultMonitor
 
 }
