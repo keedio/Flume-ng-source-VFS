@@ -120,6 +120,8 @@ agent.sources.ftp1.post.process.file = move
 |status.file.dir|Directory where a status file called \'\<sourcename>.ser\' will be created for keeping track of processed files.|no|temporal folder|The serialized information is a simple map of filename vs size |
 |keep.deleted.files.in.map|When file has been processed it can be deleted or moved. In such a case the default behavior is to stop tracking the file removing the file's name from the map.|no|false|If true, a file processed and deleted will not be reprocessed. |
 |recursive.directory.search|descend in flume's incoming subdirectories for processing files|no|true| [Wiki](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#april-20-2018)|
+|delay.between.runs|The DefaultFileMonitor is a Thread based polling file system monitor with a 1 second delay.|no|5 seconds| It is and advanced parameter use carefully. If processing losses events (lines) for huge amount of files increasing this parameter should help. The default is a delay of 5 second for every 1000 files processed|
+|files.check.per.run|Set the number of files to check per run|no|1000 files| -|
 
 ## Notes on usage.
 + In some use cases, files to be processed by flume are not yet completed (full content) while downloading to incoming, i.e., the file have already started being processing and at the same moment new lines are being appended. Flume-vfs treats this lines like modifications over a file already cached, processing them in normal way. If network latency is high it can cause issues like truncated data, even with small files. For this cases use parameter timeout.start.process.
@@ -136,6 +138,10 @@ agent.sources.ftp1.post.process.file = move
  [Documentation Flume-ng-source-VFS](https://github.com/keedio/Flume-ng-source-VFS/wiki)
 
 ### Version history #####
+- 0.4.0
+    + Delay between runs for monitor is now configurable.
+    + Files to check per run is now configurable.
+    + Added Timestamp and counter lines when processing data for better control over file parallel modification.
 - 0.3.0
     + Recursive search directory is configurable. (Check out for more information in wiki [Issues found](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#issues-found) )
     + Directory for keeping track of processed files is configurable.
