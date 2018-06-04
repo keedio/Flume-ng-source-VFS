@@ -158,6 +158,7 @@ class LocalFileTest {
     context.put("process.discovered.files", "false")
     context.put("timeout.files", "0")
     context.put("post.process.file", "delete")
+    context.put("delay.between.runs", "2")
     Configurables.configure(source, context)
     source.start()
 
@@ -195,6 +196,7 @@ class LocalFileTest {
     context.put("timeout.files", "0")
     context.put("post.process.file", "move")
     context.put("processed.dir", Files.createTempDirectory(Paths.get(tmp), "moved").toString)
+    context.put("delay.between.runs", "2")
     Configurables.configure(source, context)
     source.start()
 
@@ -226,6 +228,7 @@ class LocalFileTest {
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "false")
     context.put("timeout.files", "0")
+    context.put("delay.between.runs", "2")
     Configurables.configure(source, context)
     source.start()
 
@@ -257,6 +260,7 @@ class LocalFileTest {
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "false")
     context.put("timeout.files", "0")
+    context.put("delay.between.runs", "2")
     Configurables.configure(source, context)
     source.start()
 
@@ -267,21 +271,25 @@ class LocalFileTest {
     val txn: Transaction = channel.getTransaction
     txn.begin()
 
+
     val event1 = channel.take()
     Assert.assertEquals(new String(event1.getBody), "fileline1")
     LOG.info("event body contains " + new String(event1.getBody))
 
-    Thread.sleep(1000)
 
+    Thread.sleep(1000)
     Files.write(file, "fileline2\n".getBytes(), StandardOpenOption.APPEND)
     LOG.info("append to file " + file)
-    Thread.sleep(5000)
+
+    Thread.sleep(2000)
     val event2 = channel.take()
     Assert.assertEquals(new String(event2.getBody), "fileline2")
     LOG.info("event body contains " + new String(event2.getBody))
 
+
     txn.commit()
     txn.close()
+
     Thread.sleep(1000)
     Assert.assertEquals(source.getSourceVfsCounter.getEventCount, 2)
     Assert.assertEquals(source.getSourceVfsCounter.getFilesCount, 1)
@@ -295,7 +303,8 @@ class LocalFileTest {
     val context = new Context()
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "false")
-    context.put("timeout.start.process", "15")
+    context.put("timeout.start.process", "10")
+    context.put("delay.between.runs", "2")
     Configurables.configure(source, context)
     source.start()
 
@@ -304,7 +313,7 @@ class LocalFileTest {
     LOG.info("create file " + file + " lastModifiedTime is " + Files.getLastModifiedTime(file))
     val lastModifiedTime: Long = Files.getLastModifiedTime(file).toMillis
 
-    Files.setLastModifiedTime(file, FileTime.fromMillis(lastModifiedTime - 10000))
+    Files.setLastModifiedTime(file, FileTime.fromMillis(lastModifiedTime - 5000))
     LOG.info("modifiying lastmodifiedtime attribute to " + Files.getLastModifiedTime(file))
 
     val timeout = context.getString("timeout.start.process").toInt
@@ -341,7 +350,7 @@ class LocalFileTest {
     val context = new Context()
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "false")
-    context.put("timeout.start.process", "10")
+    context.put("timeout.start.process", "15")
     Configurables.configure(source, context)
     source.start()
 
@@ -349,9 +358,9 @@ class LocalFileTest {
     Files.write(file, "fileline1\nfileline2\n".getBytes(), StandardOpenOption.APPEND)
     LOG.info("create file " + file + " lastModifiedTime is " + Files.getLastModifiedTime(file))
     val lastModifiedTime: Long = Files.getLastModifiedTime(file).toMillis
-    Thread.sleep(15000)
+    Thread.sleep(5000)
 
-    Files.setLastModifiedTime(file, FileTime.fromMillis(lastModifiedTime - 15000))
+    Files.setLastModifiedTime(file, FileTime.fromMillis(lastModifiedTime - 10000))
     LOG.info("modifiying lastmodifiedtime attribute to " + Files.getLastModifiedTime(file))
 
     val timeout = context.getString("timeout.start.process").toInt
@@ -393,6 +402,7 @@ class LocalFileTest {
     context.put("timeout.files", "0")
     context.put("recursive.directory.search", "false")
     context.put("post.process.file", "delete")
+    context.put("delay.between.runs", "2")
     Configurables.configure(source, context)
     source.start()
 
@@ -494,6 +504,7 @@ class LocalFileTest {
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "false")
     context.put("timeout.files", "0")
+    context.put("delay.between.runs", "2")
     Configurables.configure(source, context)
     source.start()
 
@@ -534,6 +545,7 @@ class LocalFileTest {
     context.put("process.discovered.files", "false")
     context.put("timeout.files", "0")
     context.put("status.file.dir", pathToSave.toString)
+    context.put("delay.between.runs", "2")
     Configurables.configure(source, context)
     source.start()
 
