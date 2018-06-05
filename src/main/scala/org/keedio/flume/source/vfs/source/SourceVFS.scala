@@ -4,7 +4,7 @@ import java.io._
 import java.nio.charset.Charset
 import java.nio.file._
 import java.util
-import java.util.concurrent._
+import java.util.concurrent.{Executors, _}
 
 import org.apache.commons.vfs2.FileObject
 import org.apache.flume.conf.Configurable
@@ -33,6 +33,14 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
   private var sourceName: String = ""
   private var sourceHelper: SourceHelper = _
   private var watchablePath: WatchablePath = _
+  private val service: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor
+
+  val runnable = new Runnable() {
+    override def run(): Unit = {
+      mapFileAvailability.filter(_._2).keySet
+        .foreach(file => postProcessFile(sourceHelper.getActionToTakeAfterProcessingFiles, file))
+    }
+  }
 
   val listener = new StateListener {
     override def statusReceived(event: StateEvent): Unit = {
@@ -164,7 +172,6 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                     mapFileAvailability += (file -> true)
                     sourceVFScounter.incrementFilesCount()
                     sourceVFScounter.incrementCountSizeProc(fileSize)
-                    //postProcessFile(sourceHelper.getActionToTakeAfterProcessingFiles, file)
                   }
 
                 case true => {
@@ -173,8 +180,8 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   val prevModifiedTime = filesValue._2
                   val prevSize = filesValue._3
                   if (prevSize == fileSize && lastModifiedTime == prevModifiedTime) {
-                      LOG.info("File exists in map of files, previous size of file is " + prevSize + " " + Thread
-                        .currentThread().getName + " nothing to do, file remains unchanged " + fileName)
+                    LOG.info("File exists in map of files, previous size of file is " + prevSize + " " + Thread
+                      .currentThread().getName + " nothing to do, file remains unchanged " + fileName)
 
                   } else if (prevSize == fileSize && lastModifiedTime != prevModifiedTime) {
                     if (LOG.isDebugEnabled()) {
@@ -200,7 +207,6 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                     } else {
                       LOG.info("lines read " + linesRead + " do nothing")
                     }
-                    //postProcessFile(sourceHelper.getActionToTakeAfterProcessingFiles, file)
                   }
                 }
               }
@@ -224,6 +230,21 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     if (sourceHelper.getOutPutDirectory == "") {
       LOG.info("Property 'prcocess.dir', not set, files will not be moved after processing.")
     }
+
+    if (sourceHelper.getActionToTakeAfterProcessingFiles == "") {
+      LOG.info("No action set for post-processing files from source is " + this.sourceName)
+    } else if (sourceHelper.getTimeoutPostProcess == SourceProperties.DEFAULT_TIMEOUT_POST_PROCESS_FILES) {
+      LOG.warn("Action set for post-processing is " + sourceHelper.getActionToTakeAfterProcessingFiles + " but " +
+        "timeout for " + sourceHelper
+        .getActionToTakeAfterProcessingFiles + " files was not set via property " + SourceProperties
+        .TIMEOUT_POST_PROCESS_FILES)
+    } else {
+      if (LOG.isDebugEnabled) {
+        LOG.debug("Action set for post-processing is " + sourceHelper.getActionToTakeAfterProcessingFiles)
+      }
+      service.scheduleAtFixedRate(runnable, sourceHelper.getInitialDelayPostProcess, sourceHelper
+        .getTimeoutPostProcess, TimeUnit.SECONDS)
+    }
   }
 
   override def start(): Unit = {
@@ -241,6 +262,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       sourceHelper)
 
     super.start()
+
   }
 
   override def stop(): Unit = {
@@ -334,7 +356,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     */
   @Deprecated
   def saveMap(mapOfFiles: mutable.Map[String, (Long, Long, Long)], statusFile: String, fileName: String,
-              state: String):
+              state     : String):
   Boolean = {
     val oos = new ObjectOutputStream(new FileOutputStream(statusFile))
     try {
@@ -444,18 +466,9 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     * @param file
     */
   def postProcessFile(actionToTake: String, file: FileObject): Unit = {
-    actionToTake.trim match {
-      case "" =>
-        if (LOG.isDebugEnabled) {
-          LOG
-            .debug("No action set for post-processing files source is " + this
-              .sourceName + " nothing to do with " + file
-              .getName.getBaseName)
-        }
-
-      case _ if
-      mapFileAvailability.getOrElse(file, false)
-        && sourceHelper.lastModifiedTimeExceededTimeout(file.getContent.getLastModifiedTime, 10) => actionToTake match {
+    if (!sourceHelper
+      .lastModifiedTimeExceededTimeout(file.getContent.getLastModifiedTime, sourceHelper.getTimeoutPostProcess.toInt)) {
+      actionToTake match {
         case "move" => moveFile(sourceHelper.getOutPutDirectory, file)
         case "delete" => deleteFile(file)
         case _ =>

@@ -42,6 +42,12 @@ object SourceProperties {
   val MAX_FILES_CHECK_PER_RUN = "files.check.per.run"
   val DEFAULT_FILES_CHECK_PER_RUN = 1000
 
+  val TIMEOUT_POST_PROCESS_FILES = "timeout.start.post.process"
+  val DEFAULT_TIMEOUT_POST_PROCESS_FILES = -1L
+
+  val INITIAL_DELAY_TIMEOUT_POST_PROCESS_FILES = "timeout.start.post.process"
+  val DEFAULT_INITIAL_DELAY_TIMEOUT_POST_PROCESS_FILES = 60L
+
 
 
 

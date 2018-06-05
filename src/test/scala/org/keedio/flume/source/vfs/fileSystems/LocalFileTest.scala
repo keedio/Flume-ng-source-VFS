@@ -350,7 +350,8 @@ class LocalFileTest {
     val context = new Context()
     context.put("work.dir", tmpDir.toString)
     context.put("process.discovered.files", "false")
-    context.put("timeout.start.process", "15")
+    context.put("timeout.start.process", "5")
+    context.put("delay.between.runs", "1")
     Configurables.configure(source, context)
     source.start()
 
@@ -358,9 +359,9 @@ class LocalFileTest {
     Files.write(file, "fileline1\nfileline2\n".getBytes(), StandardOpenOption.APPEND)
     LOG.info("create file " + file + " lastModifiedTime is " + Files.getLastModifiedTime(file))
     val lastModifiedTime: Long = Files.getLastModifiedTime(file).toMillis
-    Thread.sleep(5000)
+    //Thread.sleep(1000)
 
-    Files.setLastModifiedTime(file, FileTime.fromMillis(lastModifiedTime - 10000))
+    Files.setLastModifiedTime(file, FileTime.fromMillis(lastModifiedTime - 5000))
     LOG.info("modifiying lastmodifiedtime attribute to " + Files.getLastModifiedTime(file))
 
     val timeout = context.getString("timeout.start.process").toInt
