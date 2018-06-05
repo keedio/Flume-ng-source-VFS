@@ -11,8 +11,9 @@ import org.apache.flume.conf.Configurable
 import org.apache.flume.event.SimpleEvent
 import org.apache.flume.source.AbstractSource
 import org.apache.flume.{ChannelException, Context, Event, EventDrivenSource}
-import org.keedio.flume.source.vfs.config.{SourceHelper, SourceProperties}
+import org.keedio.flume.source.vfs.config.{PropertiesHelper, SourceProperties}
 import org.keedio.flume.source.vfs.metrics.SourceCounterVfs
+import org.keedio.flume.source.vfs.util.SourceHelper
 import org.keedio.flume.source.vfs.watcher._
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -31,14 +32,14 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
   private var sourceVFScounter = new org.keedio.flume.source.vfs.metrics.SourceCounterVfs("")
   private val executor: ExecutorService = Executors.newFixedThreadPool(10)
   private var sourceName: String = ""
-  private var sourceHelper: SourceHelper = _
+  private var propertiesHelper: PropertiesHelper = _
   private var watchablePath: WatchablePath = _
   private val service: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor
 
   val runnable = new Runnable() {
     override def run(): Unit = {
       mapFileAvailability.filter(_._2).keySet
-        .foreach(file => postProcessFile(sourceHelper.getActionToTakeAfterProcessingFiles, file))
+        .foreach(file => postProcessFile(propertiesHelper.getActionToTakeAfterProcessingFiles, file))
     }
   }
 
@@ -129,7 +130,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                     }
                   }
                 }
-                case false => LOG.info("Status is available " + available + " by " + event.getState.toString() + " " +
+                case false => LOG.debug("Status is available " + available + " by " + event.getState.toString() + " " +
                   "for filename " + fileName)
               }
             }
@@ -142,7 +143,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
             override def run(): Unit = {
               val file: FileObject = event.getFileChangeEvent.getFile
               val fileName = file.getName.getBaseName
-              if (!sourceHelper.isKeepFilesInMap) {
+              if (!propertiesHelper.isKeepFilesInMap) {
                 mapOfFiles -= fileName
               }
               LOG.info("Source " + sourceName + " received event: " + event.getState
@@ -222,51 +223,51 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
   override def configure(context: Context): Unit = {
     sourceName = this.getName
-    sourceHelper = new SourceHelper(context, sourceName)
+    propertiesHelper = new PropertiesHelper(context, sourceName)
     sourceVFScounter = new SourceCounterVfs("SOURCE." + sourceName)
-    LOG.info("Source " + sourceName + " watching path : " + sourceHelper
-      .getWorkingDirectory + " and pattern " + sourceHelper.getPatternFilesMatch)
+    LOG.info("Source " + sourceName + " watching path : " + propertiesHelper
+      .getWorkingDirectory + " and pattern " + propertiesHelper.getPatternFilesMatch)
 
-    if (sourceHelper.getOutPutDirectory == "") {
+    if (propertiesHelper.getOutPutDirectory == "") {
       LOG.info("Property 'prcocess.dir', not set, files will not be moved after processing.")
     }
 
-    if (sourceHelper.getActionToTakeAfterProcessingFiles == "") {
+    if (propertiesHelper.getActionToTakeAfterProcessingFiles == "") {
       LOG.info("No action set for post-processing files from source is " + this.sourceName)
-    } else if (sourceHelper.getTimeoutPostProcess == SourceProperties.DEFAULT_TIMEOUT_POST_PROCESS_FILES) {
-      LOG.warn("Action set for post-processing is " + sourceHelper.getActionToTakeAfterProcessingFiles + " but " +
-        "timeout for " + sourceHelper
+    } else if (propertiesHelper.getTimeoutPostProcess == SourceProperties.DEFAULT_TIMEOUT_POST_PROCESS_FILES) {
+      LOG.warn("Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles + " but " +
+        "timeout for " + propertiesHelper
         .getActionToTakeAfterProcessingFiles + " files was not set via property " + SourceProperties
         .TIMEOUT_POST_PROCESS_FILES)
     } else {
       if (LOG.isDebugEnabled) {
-        LOG.debug("Action set for post-processing is " + sourceHelper.getActionToTakeAfterProcessingFiles)
+        LOG.debug("Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles)
       }
-      service.scheduleAtFixedRate(runnable, sourceHelper.getInitialDelayPostProcess, sourceHelper
+      service.scheduleAtFixedRate(runnable, propertiesHelper.getInitialDelayPostProcess, propertiesHelper
         .getTimeoutPostProcess, TimeUnit.SECONDS)
     }
   }
 
   override def start(): Unit = {
 
-    if (Files.exists(Paths.get(sourceHelper.getStatusFile))) {
-      mapOfFiles = loadMap(sourceHelper.getStatusFile)
+    if (Files.exists(Paths.get(propertiesHelper.getStatusFile))) {
+      mapOfFiles = loadMap(propertiesHelper.getStatusFile)
     }
     sourceVFScounter.start
 
-    val fileObject = FileObjectBuilder.getFileObject(sourceHelper.getWorkingDirectory)
+    val fileObject = FileObjectBuilder.getFileObject(propertiesHelper.getWorkingDirectory)
     watchablePath = new WatchablePath(
       fileObject,
       listener,
       sourceName,
-      sourceHelper)
+      propertiesHelper)
 
     super.start()
 
   }
 
   override def stop(): Unit = {
-    saveMap(mapOfFiles, sourceHelper.getStatusFile)
+    saveMap(mapOfFiles, propertiesHelper.getStatusFile)
     sourceVFScounter.stop()
 
     //when reload by config avoid new filemonitor.
@@ -427,13 +428,13 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     */
   def moveFile(processDir: String, file: FileObject): Unit = {
     val fileName = file.getName.getBaseName
-    if (processDir != "" && FileObjectBuilder.getFileObject(sourceHelper.getOutPutDirectory).exists()) {
+    if (processDir != "" && FileObjectBuilder.getFileObject(propertiesHelper.getOutPutDirectory).exists()) {
       val fileDest: FileObject = FileObjectBuilder
-        .getFileObject(sourceHelper.getOutPutDirectory + System.getProperty("file.separator") + fileName)
+        .getFileObject(propertiesHelper.getOutPutDirectory + System.getProperty("file.separator") + fileName)
       file.moveTo(fileDest)
       if (fileDest.exists()) {
         LOG
-          .info("Moved processed file " + fileName + " to dir " + sourceHelper
+          .info("Moved processed file " + fileName + " to dir " + propertiesHelper
             .getOutPutDirectory)
       }
     } else {
@@ -466,10 +467,11 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     * @param file
     */
   def postProcessFile(actionToTake: String, file: FileObject): Unit = {
-    if (!sourceHelper
-      .lastModifiedTimeExceededTimeout(file.getContent.getLastModifiedTime, sourceHelper.getTimeoutPostProcess.toInt)) {
+    if (!SourceHelper
+      .lastModifiedTimeExceededTimeout(file.getContent.getLastModifiedTime, propertiesHelper.getTimeoutPostProcess
+        .toInt)) {
       actionToTake match {
-        case "move" => moveFile(sourceHelper.getOutPutDirectory, file)
+        case "move" => moveFile(propertiesHelper.getOutPutDirectory, file)
         case "delete" => deleteFile(file)
         case _ =>
           LOG
@@ -482,7 +484,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
   def getSourceName = sourceName
 
-  def getSourceHelper = sourceHelper
+  def getSourceHelper = propertiesHelper
 
   def getSourceVfsCounter = sourceVFScounter
 
