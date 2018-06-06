@@ -1,11 +1,11 @@
 package org.keedio.flume.source.vfs.watcher
 
-import java.util.Date
 import java.util.concurrent._
 
 import org.apache.commons.vfs2._
 import org.apache.commons.vfs2.impl.DefaultFileMonitor
-import org.keedio.flume.source.vfs.config.SourceHelper
+import org.keedio.flume.source.vfs.config.PropertiesHelper
+import org.keedio.flume.source.vfs.util.SourceHelper
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable.ListBuffer
@@ -17,15 +17,15 @@ import scala.util.matching.Regex
   * Keedio
   */
 
-class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: StateListener,
-                    sourceName: String, sourceHelper: SourceHelper) {
+class WatchablePath(fileObject: FileObject, listener: StateListener,
+                    sourceName: String, propertiesHelper: PropertiesHelper) {
 
   val LOG: Logger = LoggerFactory.getLogger(classOf[WatchablePath])
 
-  private val includePattern: Regex = sourceHelper.getPatternFilesMatch
-  private val processDiscovered = sourceHelper.isProcessFilesDiscovered
-  private val timeOut: Integer = sourceHelper.getTimeoutProcessFiles
-  private val recursiveSearch = sourceHelper.isRecursiveSearchDirectory
+  private val includePattern: Regex = propertiesHelper.getPatternFilesMatch
+  private val processDiscovered = propertiesHelper.isProcessFilesDiscovered
+  private val timeOut: Integer = propertiesHelper.getTimeoutProcessFiles
+  private val recursiveSearch = propertiesHelper.isRecursiveSearchDirectory
   //list of susbcribers(observers) for changes in fileObject
   private val listeners: ListBuffer[StateListener] = new ListBuffer[StateListener]
   private val children: Array[FileObject] = fileObject.getChildren
@@ -65,12 +65,14 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
     }
   }
 
-  //Thread based polling file system monitor with a 1 second delay.
+  //Thread based polling file system monitor with a refresh second delay.
   private val defaultMonitor: DefaultFileMonitor = new DefaultFileMonitor(fileListener)
-  defaultMonitor.setDelay(secondsToMiliseconds(refresh))
+  defaultMonitor.setDelay(secondsToMiliseconds(propertiesHelper.getDelayBetweenRuns))
+  defaultMonitor.setChecksPerRun(propertiesHelper.getMaxFilesCheckPerRun)
+  defaultMonitor.start()
 
   ///defaultMonitor.setRecursive(recursiveSearch) --> has no effect ( JIRA-VFS-569)
-  if (sourceHelper.isRecursiveSearchDirectory) {
+  if (propertiesHelper.isRecursiveSearchDirectory) {
     defaultMonitor.addFile(fileObject)
     addSufolderOnStart(fileObject.getChildren.toList)
   } else {
@@ -81,7 +83,7 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
 
   processDiscovered match {
     case true =>
-      if (sourceHelper.isRecursiveSearchDirectory) {
+      if (propertiesHelper.isRecursiveSearchDirectory) {
         processDiscover(children.toList)
       } else {
         processDiscover(children.toList.filter(_.isFile))
@@ -98,13 +100,6 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
 
   // the number of threads to keep in the pool, even if they are idle
   private val corePoolSize = 1
-  private val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(corePoolSize)
-  //Creates and executes a one-shot action that becomes enabled after the given delay
-  private val tasks: ScheduledFuture[_] = scheduler.schedule(
-    getTaskToSchedule(),
-    start,
-    TimeUnit.SECONDS
-  )
 
   /**
     * Call this method whenever you want to notify the event listeners about a
@@ -160,18 +155,6 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
     seconds * 1000
   }
 
-  /**
-    * Make a method runnable and schedule for one-shot
-    *
-    * @return
-    */
-  def getTaskToSchedule(): Runnable = {
-    new Runnable {
-      override def run(): Unit = {
-        defaultMonitor.start()
-      }
-    }
-  }
 
   /**
     * Condition for an stateEvent to be invalid
@@ -202,9 +185,9 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
       timeOut.toInt match {
         case 0 => status = true
         case _ =>
-          val accurateTimeout = adjustTimeout(lastModifiedTimeAccuracy, timeOut)
+          val accurateTimeout = SourceHelper.adjustTimeout(lastModifiedTimeAccuracy, timeOut)
 
-          if (lastModifiedTimeExceededTimeout(lastModifiedTime, accurateTimeout)) {
+          if (SourceHelper.lastModifiedTimeExceededTimeout(lastModifiedTime, accurateTimeout)) {
             LOG
               .info("File " + fileName + " could be still being written or timeout may be too high, do not process yet." +
                 " File will be checked in " + accurateTimeout + " seconds.")
@@ -214,7 +197,7 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
               new Runnable {
                 override def run(): Unit = {
                   val updateModified = fileObject.resolveFile(fileName).getContent.getLastModifiedTime
-                  if (lastModifiedTimeExceededTimeout(updateModified, accurateTimeout)) {
+                  if (SourceHelper.lastModifiedTimeExceededTimeout(updateModified, accurateTimeout)) {
                     status = false
                   } else {
                     LOG.info("File " + fileName + " reached threshold last modified time, send to process.")
@@ -232,49 +215,28 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
     status
   }
 
-  import java.util.Calendar
+//  import java.util.Calendar
+//
+//  /**
+//    * Determine whether the attribute 'lastModifiedTime' exceeded argument threshold(timeout).
+//    * If 'timeout' seconds have passed since the last modification of the file, file can be discovered
+//    * and processed.
+//    * If Datemodified is before than DateTimeout we can process, return true
+//    *
+//    * @param lastModifiedTime
+//    * @param timeout ,         configurable by user via property processInUseTimeout (seconds)
+//    * @return
+//    */
+//  def lastModifiedTimeExceededTimeout(lastModifiedTime: Long, timeout: Int): Boolean = {
+//    val dateModified = new Date(lastModifiedTime)
+//    val cal = Calendar.getInstance
+//    cal.setTime(new Date)
+//    cal.add(Calendar.SECOND, -timeout)
+//    val timeoutAgo = cal.getTime
+//    dateModified.compareTo(timeoutAgo) > 0
+//  }
 
-  /**
-    * Determine whether the attribute 'lastModifiedTime' exceeded argument threshold(timeout).
-    * If 'timeout' seconds have passed since the last modification of the file, file can be discovered
-    * and processed.
-    * If Datemodified is before than DateTimeout we can process, return true
-    *
-    * @param lastModifiedTime
-    * @param timeout ,         configurable by user via property processInUseTimeout (seconds)
-    * @return
-    */
-  def lastModifiedTimeExceededTimeout(lastModifiedTime: Long, timeout: Int): Boolean = {
-    val dateModified = new Date(lastModifiedTime)
-    val cal = Calendar.getInstance
-    cal.setTime(new Date)
-    cal.add(Calendar.SECOND, -timeout)
-    val timeoutAgo = cal.getTime
-    dateModified.compareTo(timeoutAgo) > 0
-  }
 
-  /**
-    * Returns the timeout set by user but adjusted with the accuracy of the last modification time provided
-    * by the file system.
-    *
-    * @param lastModifiedTimeAccuracy
-    * @param baseTimeOut
-    * @return
-    */
-  def adjustTimeout(lastModifiedTimeAccuracy: java.lang.Double, baseTimeOut: Int): Int = {
-    val adjustedTimeout = lastModifiedTimeAccuracy.toInt match {
-      case 0 => baseTimeOut
-      case x if (x > 0) =>
-        (baseTimeOut.toLong - x.toLong).toInt
-      case _ => baseTimeOut
-    }
-    if (LOG.isDebugEnabled) {
-      LOG.debug("The accuracy of the last modification time provided by file system is " + lastModifiedTimeAccuracy +
-        " ms " + ", computed timeout is " + adjustedTimeout + " seconds")
-    }
-
-    adjustedTimeout
-  }
 
   /**
     * Iterate over element of subfolders
@@ -306,5 +268,7 @@ class WatchablePath(refresh: Int, start: Int, fileObject: FileObject, listener: 
     }
     )
   }
+
+  def getDefaultFilemonitor = defaultMonitor
 
 }

@@ -1,5 +1,6 @@
 package org.keedio.flume.source.vfs.config
 
+import java.lang
 import java.nio.file.{Path, Paths}
 
 import org.apache.flume.Context
@@ -14,8 +15,8 @@ import scala.util.matching.Regex
   * Keedio
   */
 
-class SourceHelper(context: Context, sourceName: String) {
-  private val LOG: Logger = LoggerFactory.getLogger(classOf[SourceHelper])
+class PropertiesHelper(context: Context, sourceName: String) {
+  private val LOG: Logger = LoggerFactory.getLogger(classOf[PropertiesHelper])
 
   private val workingDirectory = context.getString(WORKING_DIRECTORY, DEFAULT_WORKING_DIRECTORY)
   private val outPutDirectory = context.getString(OUTPUT_DIRECTORY, DEFAULT_OUTPUT_DIRECTORY)
@@ -28,6 +29,10 @@ class SourceHelper(context: Context, sourceName: String) {
   private val statusFilePath = context.getString(PATH_TO_STATUS_FILE, DEFAULT_PATH_TO_STATUS_FILE)
   private val recursiveSearch = context.getBoolean(RECURSIVE_DIRECTORY_SEARCH, DEFAULT_RECURSIVE_DIRECTORY_SEARCH)
   private val keepFilesInMap = context.getBoolean(RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS, DEFAULT_RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS)
+  private val delayBetweenRuns = context.getInteger(DELAY_BETWEEN_FILEMONITOR_RUNS, DEFAULT_DELAY_BETWEEN_FILEMONITOR_RUNS)
+  private val filesPerRun = context.getInteger(MAX_FILES_CHECK_PER_RUN, DEFAULT_FILES_CHECK_PER_RUN)
+  private val timeoutPostProcess = context.getLong(TIMEOUT_POST_PROCESS_FILES, DEFAULT_TIMEOUT_POST_PROCESS_FILES)
+  private val initialDelayPostProcess = context.getLong(INITIAL_DELAY_TIMEOUT_POST_PROCESS_FILES, DEFAULT_INITIAL_DELAY_TIMEOUT_POST_PROCESS_FILES)
 
   def getWorkingDirectory: String = workingDirectory
 
@@ -50,6 +55,13 @@ class SourceHelper(context: Context, sourceName: String) {
   def isRecursiveSearchDirectory: Boolean = recursiveSearch
   def isKeepFilesInMap: Boolean = keepFilesInMap
 
+  def getDelayBetweenRuns: Integer = delayBetweenRuns
+
+  def getMaxFilesCheckPerRun: Integer = filesPerRun
+
+  def getTimeoutPostProcess: lang.Long = timeoutPostProcess
+
+  def getInitialDelayPostProcess: lang.Long = initialDelayPostProcess
 
 }
 
