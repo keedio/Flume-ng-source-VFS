@@ -107,22 +107,38 @@ agent.sources.ftp1.post.process.file = move
     $ ./bin/flume-ng agent -c conf -conf-file conf/flume-ng-source-vfs.conf --name agent -Dflume.root.logger=INFO,console
      ```
 
-### Configurable parameters
+### Basic Configurable parameters
+The only required parameter for starting a agent with a Keedio vfs source is "work.dir". You can add a regular expression.
 
-|Parameter|Description|mandatory|default|observations|
-|------|-----------|---|----|---|
-|work.dir|path for incoming files|yes|-|/home/flume/incoming|
-|includePattern| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for matching files' names|no|everything|"\\\\.*.txt" just txt files|
-|processed.dir|if property set, files processed will be moved to dir (path for out files)|no|-|/home/flume/out, remember check for permissions
-|process.discovered.files|process files that are located in the 'work.dir' before the agent starts.|no|true|Process or read on startup agent.|
-|timeout.start.process|Process file if 'timeout' seconds have passed since the last modification of the file. Intended for huge files being downloaded to incoming with high network latency. |no|- |For example 60 (seconds), The timeout set by this property is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
-|post.process.file|If file is successfully processed by source, move or delete|no| do nothing, file remains in incoming.|move or delete. Rememeber to check for permissions. If move files is set but target directory does not exists, file will not be moved. Check for property "timeout.start.post.process"|
-|status.file.dir|Directory where a status file called \'\<sourcename>.ser\' will be created for keeping track of processed files.|no|temporal folder|The serialized information is a simple map of filename vs size |
-|keep.deleted.files.in.map|When file has been processed it can be deleted or moved. In such a case the default behavior is to stop tracking the file removing the file's name from the map.|no|true|If false, a file processed and deleted will be reprocessed. In most cases we don't want to process a file already processed (default behavior). For a rotating file in time (same file's name but different content) can be useful. |
-|recursive.directory.search|descend in flume's incoming subdirectories for processing files|no|true| [Wiki](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#april-20-2018)|
-|delay.between.runs|The DefaultFileMonitor is a Thread based polling file system monitor with a 1 second delay.|no|10 seconds| It is and advanced parameter use carefully. If processing losses events (lines) for huge amount of files, or huge files, increasing this parameter should help. The default is a delay of 10 second for every 1000 files processed|
-|files.check.per.run|Set the number of files to check per run|no|1000 files| -|
-|timeout.start.post.process|Post-process files (delete or move) if 'timeout' seconds have passed since the last modification of the file.|yes, if property 'post.process.file' has been set |no default value|Be careful with this property. The file's attribute Last modified time will be checked and if exceeds the threshold (timeout) files will be deleted. If file is still been processed the delay will be increased in another x seconds.Check for more information on Notes os usage.
+|Parameter|Description|
+|------|:-----------|
+|```work.dir```|path for incoming files, example /incoming|
+|```includePattern```| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for matching files' names, example "\\\\.*.txt" just txt files|
+
+###  Configurable parameters that control the behavior of file processing.
+The following parameters are optional. They control what the source should do when a file is found and if we want to do something else to
+the file after have been processed by flume.
+
+|Parameter                      |Description|
+|------------------------------ |-----------|
+|```processed.dir```|if property set, files processed will be moved to dir,<br> example /home/flume/out, remember check for permissions|
+|```process.discovered.files```|process files that are located in the 'work.dir' before the agent<br> starts.Process or read on startup agent, default is true|
+|```timeout.start.process```              |Process file if 'timeout' seconds have passed since the<br> last modification of the file. Intended for huge files<br> being downloaded to incoming with high network latency.<br>For example 60 (seconds), The timeout set by this property<br> is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
+|```post.process.file```        |If file is successfully processed by source, move or delete. By<br> default do nothing. If move files is set but target directory<br> does not exists, file will not be moved.<br> Check for property "timeout.start.post.process"|
+|```status.file.dir```|Directory where a status file called \'\<sourcename>.ser\' will be created` for <br>keeping track of processed files. Default is temporal<br> folder.The serialized information is a simple<br> map of filename vs size |
+|```keep.deleted.files.in.map```|When file has been processed it can be deleted or moved. In such<br> a case the default behavior is to stop tracking the file<br> removing the file's name from the map. Default is<br> true. If false, a file processed and deleted will be reprocessed.<br> In most cases we don't want to process a file already processed<br> (default behavior). For a rotating file in time (same file's name but<br> different content) can be useful. |
+|```recursive.directory.search```|descend in flume's incoming subdirectories for processing files,<br> default is true. Check [Wiki](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#april-20-2018)|
+|```timeout.start.post.process```|Post-process files (delete or move) if 'timeout' seconds have passed<br> since the last modification of the file.|yes, if<br> property 'post.process.file' has been set.Be careful with <br>this property. The file's attribute Last modified time will<br> be checked and if exceeds the threshold (timeout)<br> files will be deleted. If file is still been <br> processed the delay will be increased in another x seconds.Check for more information on Notes os usage.
+
+### Advanced Configurable parameters
+The following parameters regulate the internal behavior of vfs monitor responsible for triggering events.
+
+
+|Parameter|Description|
+|------|-----------|
+|```delay.between.runs```|The DefaultFileMonitor is a Thread based polling file system monitor with a 1<br> second delay, default is 10 seconds. It is and <br>advanced parameter use carefully. If processing losses events<br> (lines) for huge amount of files, or huge files, increasing this parameter should help.<br> The default is a delay of 10 second for every 1000 files processed|
+|```files.check.per.run```|Set the number of files to check per run, default is 1000 files|
+
 
 ## Notes on usage.
 + In some use cases, files to be processed by flume are not yet completed (full content) while downloading to incoming, i.e., the file have already started being processing and at the same moment new lines are being appended. Flume-vfs treats this lines like modifications over a file already cached, processing them in normal way. If network latency is high it can cause issues like truncated data, even with small files. For this cases use parameter timeout.start.process.
