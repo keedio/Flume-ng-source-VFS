@@ -114,19 +114,21 @@ agent.sources.ftp1.post.process.file = move
 |work.dir|path for incoming files|yes|-|/home/flume/incoming|
 |includePattern| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for matching files' names|no|everything|"\\\\.*.txt" just txt files|
 |processed.dir|if property set, files processed will be moved to dir (path for out files)|no|-|/home/flume/out, remember check for permissions
-|process.discovered.files|process files that were in incoming before launching|no|true|true or false|
+|process.discovered.files|process files that are located in the 'work.dir' before the agent starts.|no|true|Process or read on startup agent.|
 |timeout.start.process|Process file if 'timeout' seconds have passed since the last modification of the file. Intended for huge files being downloaded to incoming with high network latency. |no|- |For example 60 (seconds), The timeout set by this property is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
-|post.process.file|If file is successfully processed by source, move or delete|no| do nothing, file remains in incoming.|move or delete. Rememeber to check for permissions. If move files is set but target directory does not exists, file will not be moved.|
+|post.process.file|If file is successfully processed by source, move or delete|no| do nothing, file remains in incoming.|move or delete. Rememeber to check for permissions. If move files is set but target directory does not exists, file will not be moved. Check for property "timeout.start.post.process"|
 |status.file.dir|Directory where a status file called \'\<sourcename>.ser\' will be created for keeping track of processed files.|no|temporal folder|The serialized information is a simple map of filename vs size |
-|keep.deleted.files.in.map|When file has been processed it can be deleted or moved. In such a case the default behavior is to stop tracking the file removing the file's name from the map.|no|false|If true, a file processed and deleted will not be reprocessed. |
+|keep.deleted.files.in.map|When file has been processed it can be deleted or moved. In such a case the default behavior is to stop tracking the file removing the file's name from the map.|no|true|If false, a file processed and deleted will be reprocessed. In most cases we don't want to process a file already processed (default behavior). For a rotating file in time (same file's name but different content) can be useful. |
 |recursive.directory.search|descend in flume's incoming subdirectories for processing files|no|true| [Wiki](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#april-20-2018)|
-|delay.between.runs|The DefaultFileMonitor is a Thread based polling file system monitor with a 1 second delay.|no|5 seconds| It is and advanced parameter use carefully. If processing losses events (lines) for huge amount of files increasing this parameter should help. The default is a delay of 5 second for every 1000 files processed|
+|delay.between.runs|The DefaultFileMonitor is a Thread based polling file system monitor with a 1 second delay.|no|10 seconds| It is and advanced parameter use carefully. If processing losses events (lines) for huge amount of files, or huge files, increasing this parameter should help. The default is a delay of 10 second for every 1000 files processed|
 |files.check.per.run|Set the number of files to check per run|no|1000 files| -|
+|timeout.start.post.process|Post-process files (delete or move) if 'timeout' seconds have passed since the last modification of the file.|yes, if property 'post.process.file' has been set |no default value|Be careful with this property. The file's attribute Last modified time will be checked and if exceeds the threshold (timeout) files will be deleted. If file is still been processed the delay will be increased in another x seconds.Check for more information on Notes os usage.
 
 ## Notes on usage.
 + In some use cases, files to be processed by flume are not yet completed (full content) while downloading to incoming, i.e., the file have already started being processing and at the same moment new lines are being appended. Flume-vfs treats this lines like modifications over a file already cached, processing them in normal way. If network latency is high it can cause issues like truncated data, even with small files. For this cases use parameter timeout.start.process.
 + If a file haven been correctly processed, it's name and size are tracked in an external file than is reloaded when flume is restarted. This file is saved on temporal directory. If flume stops and a file is not yet finished processing, the file will be processed again since start, producing repeated messages.
 + When a file has been processed by flume, by default file will remain in directory "incoming", unless an action to take has been set via property 'post.process.file'. In such a case, if file is moved or deleted, the file's name will be removed from the tracking map. If for some reason the same file reappears in flumes's incoming the file will be reprocessed again producing duplicated events. Setting to true 'keep.deleted.files.in.map' will avoid such a use case.
++ To be able to delete or move the files when they have finished processing by flume, when the source starts, it triggers a program that iterates over the files processed, checking if the last modified time is higher than the threshold set in the configurable property.
 
 ## Notes on supported and tested file systems ##
 
@@ -142,6 +144,7 @@ agent.sources.ftp1.post.process.file = move
     + Delay between runs for monitor is now configurable.
     + Files to check per run is now configurable.
     + Added Timestamp and counter lines when processing data for better control over file parallel modification.
+    + Post processing files is now an asynchronous execution.
 - 0.3.0
     + Recursive search directory is configurable. (Check out for more information in wiki [Issues found](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#issues-found) )
     + Directory for keeping track of processed files is configurable.
