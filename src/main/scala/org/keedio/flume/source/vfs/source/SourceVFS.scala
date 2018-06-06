@@ -38,8 +38,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
   val runnable = new Runnable() {
     override def run(): Unit = {
-      mapFileAvailability.filter(_._2).keySet
-        .foreach(file => postProcessFile(propertiesHelper.getActionToTakeAfterProcessingFiles, file))
+      if (! mapFileAvailability.isEmpty) {
+        mapFileAvailability.keySet
+          .foreach(file => postProcessFile(propertiesHelper.getActionToTakeAfterProcessingFiles, file))
+      }
     }
   }
 
@@ -232,20 +234,6 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       LOG.info("Property 'prcocess.dir', not set, files will not be moved after processing.")
     }
 
-    if (propertiesHelper.getActionToTakeAfterProcessingFiles == "") {
-      LOG.info("No action set for post-processing files from source is " + this.sourceName)
-    } else if (propertiesHelper.getTimeoutPostProcess == SourceProperties.DEFAULT_TIMEOUT_POST_PROCESS_FILES) {
-      LOG.warn("Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles + " but " +
-        "timeout for " + propertiesHelper
-        .getActionToTakeAfterProcessingFiles + " files was not set via property " + SourceProperties
-        .TIMEOUT_POST_PROCESS_FILES)
-    } else {
-      if (LOG.isDebugEnabled) {
-        LOG.debug("Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles)
-      }
-      service.scheduleAtFixedRate(runnable, propertiesHelper.getInitialDelayPostProcess, propertiesHelper
-        .getTimeoutPostProcess, TimeUnit.SECONDS)
-    }
   }
 
   override def start(): Unit = {
@@ -264,6 +252,24 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
     super.start()
 
+    if (propertiesHelper.getActionToTakeAfterProcessingFiles == "") {
+      LOG.info("No action set for post-processing files from source is " + this.sourceName)
+    } else if (propertiesHelper.getTimeoutPostProcess == SourceProperties.DEFAULT_TIMEOUT_POST_PROCESS_FILES) {
+      LOG.warn("Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles + " but " +
+        "timeout for " + propertiesHelper
+        .getActionToTakeAfterProcessingFiles + " files was not set via property " + SourceProperties
+        .TIMEOUT_POST_PROCESS_FILES)
+    } else {
+      if (LOG.isDebugEnabled) {
+        LOG.debug("Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles)
+      }
+      try {
+        service.scheduleWithFixedDelay(runnable, propertiesHelper.getInitialDelayPostProcess, propertiesHelper
+          .getTimeoutPostProcess, TimeUnit.SECONDS)
+      } catch {
+        case ex: Throwable => {LOG.info("exception schedule " + ex)}
+      }
+    }
   }
 
   override def stop(): Unit = {
