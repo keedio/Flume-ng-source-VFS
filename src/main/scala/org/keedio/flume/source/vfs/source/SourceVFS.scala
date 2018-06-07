@@ -28,7 +28,8 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
   val LOG: Logger = LoggerFactory.getLogger(classOf[SourceVFS])
   private var mapOfFiles = mutable.HashMap[String, (Long, Long, Long)]()
-  private val mapFileAvailability = new scala.collection.mutable.HashMap[FileObject, Boolean]() with scala.collection.mutable.SynchronizedMap[FileObject, Boolean]
+  private val mapFileAvailability = new scala.collection.mutable.HashMap[FileObject, Boolean]() with scala.collection
+  .mutable.SynchronizedMap[FileObject, Boolean]
   private var sourceVFScounter = new org.keedio.flume.source.vfs.metrics.SourceCounterVfs("")
   private val executor: ExecutorService = Executors.newFixedThreadPool(10)
   private var sourceName: String = ""
@@ -38,10 +39,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
   val procFilesCollector = new Runnable() {
     override def run(): Unit = {
-        if (!mapFileAvailability.isEmpty) {
-          mapFileAvailability.keySet
-            .foreach(file => postProcessFile(propertiesHelper.getActionToTakeAfterProcessingFiles, file))
-        }
+      if (!mapFileAvailability.isEmpty) {
+        mapFileAvailability.keySet
+          .foreach(file => postProcessFile(propertiesHelper.getActionToTakeAfterProcessingFiles, file))
+      }
     }
   }
 
@@ -265,7 +266,9 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
         service.scheduleWithFixedDelay(procFilesCollector, propertiesHelper.getInitialDelayPostProcess, propertiesHelper
           .getTimeoutPostProcess, TimeUnit.SECONDS)
       } catch {
-        case ex: Throwable => {LOG.info("exception schedule " + ex)}
+        case ex: Throwable => {
+          LOG.info("exception schedule " + ex)
+        }
       }
     }
   }
@@ -353,7 +356,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     linesProcessed
   }
 
-    /**
+  /**
     * Write to file system a map of processed files
     *
     * @param mapOfFiles
