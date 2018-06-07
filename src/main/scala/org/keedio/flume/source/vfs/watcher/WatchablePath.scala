@@ -215,27 +215,6 @@ class WatchablePath(fileObject: FileObject, listener: StateListener,
     status
   }
 
-//  import java.util.Calendar
-//
-//  /**
-//    * Determine whether the attribute 'lastModifiedTime' exceeded argument threshold(timeout).
-//    * If 'timeout' seconds have passed since the last modification of the file, file can be discovered
-//    * and processed.
-//    * If Datemodified is before than DateTimeout we can process, return true
-//    *
-//    * @param lastModifiedTime
-//    * @param timeout ,         configurable by user via property processInUseTimeout (seconds)
-//    * @return
-//    */
-//  def lastModifiedTimeExceededTimeout(lastModifiedTime: Long, timeout: Int): Boolean = {
-//    val dateModified = new Date(lastModifiedTime)
-//    val cal = Calendar.getInstance
-//    cal.setTime(new Date)
-//    cal.add(Calendar.SECOND, -timeout)
-//    val timeoutAgo = cal.getTime
-//    dateModified.compareTo(timeoutAgo) > 0
-//  }
-
 
 
   /**
