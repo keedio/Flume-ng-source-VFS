@@ -36,7 +36,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
   private var watchablePath: WatchablePath = _
   private val service: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor
 
-  val runnable = new Runnable() {
+  val procFilesCollector = new Runnable() {
     override def run(): Unit = {
         if (!mapFileAvailability.isEmpty) {
           mapFileAvailability.keySet
@@ -72,7 +72,6 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   mapFileAvailability += (file -> true)
                   LOG.info("End processing new file: " + fileName)
                   sourceVFScounter.incrementFilesCount()
-                  sourceVFScounter.incrementCountSizeProc(fileSize)
                 } else {
                   LOG.info("lines read " + linesRead + " do nothing")
                 }
@@ -174,7 +173,6 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                     LOG.info("End processing discovered file: " + fileName)
                     mapFileAvailability += (file -> true)
                     sourceVFScounter.incrementFilesCount()
-                    sourceVFScounter.incrementCountSizeProc(fileSize)
                   }
 
                 case true => {
@@ -264,7 +262,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
         LOG.debug("Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles)
       }
       try {
-        service.scheduleWithFixedDelay(runnable, propertiesHelper.getInitialDelayPostProcess, propertiesHelper
+        service.scheduleWithFixedDelay(procFilesCollector, propertiesHelper.getInitialDelayPostProcess, propertiesHelper
           .getTimeoutPostProcess, TimeUnit.SECONDS)
       } catch {
         case ex: Throwable => {LOG.info("exception schedule " + ex)}
@@ -351,36 +349,11 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       LOG.info("Save filename " + filename + " , " + linesProcessed + " , " + linesLong + " , " + lastModifiedTime
         + " , " + fileSize)
     }
+    sourceVFScounter.incrementCountSizeProc(fileSize)
     linesProcessed
   }
 
-  /**
-    * Write to file system a map of processed files.
-    *
-    * @param mapOfFiles
-    * @param statusFile
-    * @return
-    */
-  @Deprecated
-  def saveMap(mapOfFiles: mutable.Map[String, (Long, Long, Long)], statusFile: String, fileName: String,
-              state     : String):
-  Boolean = {
-    val oos = new ObjectOutputStream(new FileOutputStream(statusFile))
-    try {
-      oos.writeObject(mapOfFiles)
-      oos.close()
-      if (LOG.isDebugEnabled) {
-        LOG.info("Write to map of files " + state + ": " + fileName)
-      }
-      true
-    } catch {
-      case io: IOException =>
-        LOG.error("Cannot write object " + mapOfFiles + " to " + statusFile, io)
-        false
-    }
-  }
-
-  /**
+    /**
     * Write to file system a map of processed files
     *
     * @param mapOfFiles
