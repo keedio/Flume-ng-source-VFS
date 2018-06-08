@@ -299,6 +299,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     try {
       getChannelProcessor.processEvent(event)
       sourceVFScounter.incrementEventCount()
+      sourceVFScounter.incrementCountSizeProc(data.size)
     } catch {
       case ex: ChannelException => {
         LOG.info("ChannelException was launched, putting to sleep.", ex)
@@ -352,7 +353,6 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       LOG.info("Save filename " + filename + " , " + linesProcessed + " , " + linesLong + " , " + lastModifiedTime
         + " , " + fileSize)
     }
-    sourceVFScounter.incrementCountSizeProc(fileSize)
     linesProcessed
   }
 
