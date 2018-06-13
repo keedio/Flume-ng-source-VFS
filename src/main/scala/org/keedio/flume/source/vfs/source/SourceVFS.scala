@@ -2,7 +2,7 @@ package org.keedio.flume.source.vfs.source
 
 import java.io._
 import java.nio.charset.Charset
-import java.nio.file._
+import java.nio.file.{Files, Paths}
 import java.util
 import java.util.concurrent.{Executors, _}
 
@@ -35,14 +35,24 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
   private var sourceName: String = ""
   private var propertiesHelper: PropertiesHelper = _
   private var watchablePath: WatchablePath = _
-  private val service: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor
+  private val servicePostProcessFiles: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor
+  private val serviceSaveMap = Executors.newSingleThreadScheduledExecutor()
 
-  val procFilesCollector = new Runnable() {
+  val postProcessFilesTask = new Runnable() {
     override def run(): Unit = {
       if (!mapFileAvailability.isEmpty) {
+        if (LOG.isDebugEnabled) {
+          LOG.debug("MapFileAvailability has size " + mapFileAvailability.size)
+        }
         mapFileAvailability.keySet
           .foreach(file => postProcessFile(propertiesHelper.getActionToTakeAfterProcessingFiles, file))
       }
+    }
+  }
+
+  val saveMapTask = new Runnable() {
+    override def run(): Unit = {
+      saveMap(mapOfFiles, propertiesHelper.getStatusFile)
     }
   }
 
@@ -223,6 +233,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
   }
 
   override def configure(context: Context): Unit = {
+
     sourceName = this.getName
     propertiesHelper = new PropertiesHelper(context, sourceName)
     sourceVFScounter = new SourceCounterVfs("SOURCE." + sourceName)
@@ -236,10 +247,14 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
   }
 
   override def start(): Unit = {
-
+    //On starting load map of files.
+    //If map exceeds a max limit of count files, purge the oldest.
     if (Files.exists(Paths.get(propertiesHelper.getStatusFile))) {
-      mapOfFiles = loadMap(propertiesHelper.getStatusFile)
+      val loadedMap = loadMap(propertiesHelper.getStatusFile)
+      mapOfFiles = SourceHelper
+        .purgeMapOfFiles(loadedMap, propertiesHelper.getMaxFilesMapCount, propertiesHelper.getTimeoutFileOld)
     }
+
     sourceVFScounter.start
 
     val fileObject = FileObjectBuilder.getFileObject(propertiesHelper.getWorkingDirectory)
@@ -251,6 +266,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
     super.start()
 
+    //trigger service for post-processing files.
     if (propertiesHelper.getActionToTakeAfterProcessingFiles == "") {
       LOG.info("No action set for post-processing files from source is " + this.sourceName)
     } else if (propertiesHelper.getTimeoutPostProcess == SourceProperties.DEFAULT_TIMEOUT_POST_PROCESS_FILES) {
@@ -263,14 +279,22 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
         LOG.debug("Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles)
       }
       try {
-        service.scheduleWithFixedDelay(procFilesCollector, propertiesHelper.getInitialDelayPostProcess, propertiesHelper
-          .getTimeoutPostProcess, TimeUnit.SECONDS)
+        servicePostProcessFiles
+          .scheduleWithFixedDelay(postProcessFilesTask, propertiesHelper.getInitialDelayPostProcess, propertiesHelper
+            .getTimeoutPostProcess, TimeUnit.SECONDS)
       } catch {
         case ex: Throwable => {
-          LOG.info("exception schedule " + ex)
+          LOG.info("Error executing task servicePostProcessFiles, it will no longer be run! " + ex)
         }
       }
     }
+
+    //trigger service for saving map.
+    serviceSaveMap.scheduleWithFixedDelay(saveMapTask, 10, propertiesHelper.getTimeIntervalSaveData, TimeUnit.SECONDS)
+
+
+
+
   }
 
   override def stop(): Unit = {
@@ -279,6 +303,8 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
     //when reload by config avoid new filemonitor.
     watchablePath.getDefaultFilemonitor.stop()
+    servicePostProcessFiles.shutdown()
+    serviceSaveMap.shutdown()
 
     super.stop()
   }
@@ -370,7 +396,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       oos.writeObject(mapOfFiles)
       oos.close()
       if (LOG.isDebugEnabled) {
-        LOG.info("Write to map of files : " + statusFile)
+        LOG.debug("Write to map of files : " + statusFile)
       }
       true
     } catch {
@@ -396,8 +422,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     } catch {
       case e: IOException =>
         LOG
-          .warn("Map of files is could not be loaded because file is corrupted for source " + sourceName + " . " +
-            "Generating new one.")
+          .warn("Map of files is could not be loaded for source " + sourceName + ".Generating new one.")
         new mutable.HashMap[String, (Long, Long, Long)]()
     }
   }
@@ -454,7 +479,9 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
         .toInt)) {
       actionToTake match {
         case "move" => moveFile(propertiesHelper.getOutPutDirectory, file)
+          mapFileAvailability -= file
         case "delete" => deleteFile(file)
+          mapFileAvailability -= file
         case _ =>
           LOG
             .error("For source " + this
