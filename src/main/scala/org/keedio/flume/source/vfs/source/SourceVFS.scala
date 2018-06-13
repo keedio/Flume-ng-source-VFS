@@ -244,6 +244,9 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       LOG.info("Property 'prcocess.dir', not set, files will not be moved after processing.")
     }
 
+    val mapProperties = context.getParameters.entrySet().toArray
+    mapProperties.foreach(prop => LOG.info("Property set by Flume context is : " + prop))
+
   }
 
   override def start(): Unit = {
@@ -291,9 +294,6 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
     //trigger service for saving map.
     serviceSaveMap.scheduleWithFixedDelay(saveMapTask, 10, propertiesHelper.getTimeIntervalSaveData, TimeUnit.SECONDS)
-
-
-
 
   }
 
