@@ -4,6 +4,8 @@ import java.util.{Calendar, Date}
 
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.collection.mutable
+
 /**
   * Created by luislazaro on 5/6/18.
   * lalazaro@keedio.com
@@ -32,7 +34,6 @@ object SourceHelper {
     dateModified.compareTo(timeoutAgo) > 0
   }
 
-
   /**
     * Returns the timeout set by user but adjusted with the accuracy of the last modification time provided
     * by the file system.
@@ -54,6 +55,28 @@ object SourceHelper {
     }
 
     adjustedTimeout
+  }
+
+  /**
+    * Check for a maximum count files in map. If true, filter the youngest.
+    *
+    * @param mapOfFiles
+    * @return
+    */
+  def purgeMapOfFiles(mapOfFiles: mutable.HashMap[String, (Long, Long, Long)], maxCountFiles: Int, maxAgeFiles: Int):
+  mutable.HashMap[String, (Long, Long, Long)] = {
+    if (mapOfFiles.size > maxCountFiles) {
+      mapOfFiles.filter(file => {
+        val lasModifiedTimeFile = file._2._2
+        val aux = SourceHelper.lastModifiedTimeExceededTimeout(lasModifiedTimeFile, maxAgeFiles)
+        if (!aux && LOG.isDebugEnabled) {
+          LOG.debug("File " + file + " has been removed from map when starting source, is older than " + maxAgeFiles)
+        }
+        aux
+      })
+    } else {
+      mapOfFiles
+    }
   }
 
 }

@@ -33,6 +33,9 @@ class PropertiesHelper(context: Context, sourceName: String) {
   private val filesPerRun = context.getInteger(MAX_FILES_CHECK_PER_RUN, DEFAULT_FILES_CHECK_PER_RUN)
   private val timeoutPostProcess = context.getLong(TIMEOUT_POST_PROCESS_FILES, DEFAULT_TIMEOUT_POST_PROCESS_FILES)
   private val initialDelayPostProcess = context.getLong(INITIAL_DELAY_TIMEOUT_POST_PROCESS_FILES, DEFAULT_INITIAL_DELAY_TIMEOUT_POST_PROCESS_FILES)
+  private val maxFilesMapCount = context.getInteger(MAX_LIMIT_MAP_FILES_COUNT, DEFAULT_MAX_LIMIT_MAP_FILES_COUNT)
+  private val timeoutFileOld = context.getInteger(TIMEOUT_FILE_IN_MAP_IS_OLD, DEFAULT_TIMEOUT_FILE_IN_MAP_IS_OLD)
+  private val timeIntervalSaveData = context.getLong(TIME_INTERVAL_SAVE_DATA, DEFAULT_TIME_INTERVAL_SAVE_DATA)
 
   def getWorkingDirectory: String = workingDirectory
 
@@ -62,6 +65,12 @@ class PropertiesHelper(context: Context, sourceName: String) {
   def getTimeoutPostProcess: lang.Long = timeoutPostProcess
 
   def getInitialDelayPostProcess: lang.Long = initialDelayPostProcess
+
+  def getMaxFilesMapCount: Integer = maxFilesMapCount
+
+  def getTimeoutFileOld =  timeoutFileOld
+
+  def getTimeIntervalSaveData = timeIntervalSaveData
 
 }
 
