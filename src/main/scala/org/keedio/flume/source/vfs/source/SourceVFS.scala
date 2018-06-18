@@ -293,12 +293,20 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     }
 
     //trigger service for saving map.
-    serviceSaveMap.scheduleWithFixedDelay(saveMapTask, 10, propertiesHelper.getTimeIntervalSaveData, TimeUnit.SECONDS)
+    if (propertiesHelper.isSaveStatusFilesScheduled) {
+      serviceSaveMap.scheduleWithFixedDelay(saveMapTask, 10, propertiesHelper.getTimeIntervalSaveData, TimeUnit.SECONDS)
+    } else {
+      if (LOG.isDebugEnabled){LOG.debug("Files processed will not be saved in status file for source " + getSourceName)}
+    }
 
   }
 
   override def stop(): Unit = {
-    saveMap(mapOfFiles, propertiesHelper.getStatusFile)
+    if (propertiesHelper.isSaveStatusFilesOnStop) {
+      saveMap(mapOfFiles, propertiesHelper.getStatusFile)
+    } else {
+      if (LOG.isDebugEnabled){LOG.debug("Files processed will not be saved in status file when stopping source " + getSourceName)}
+    }
     sourceVFScounter.stop()
 
     //when reload by config avoid new filemonitor.

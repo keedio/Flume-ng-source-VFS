@@ -128,7 +128,7 @@ the file after have been processed by flume.
 |**```timeout.start.process```**              |Process file if 'timeout' seconds have passed since the<br> last modification of the file. Intended for huge files<br> being downloaded to incoming with high network latency.<br>For example 60 (seconds), The timeout set by this property<br> is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
 |**```post.process.file```**        |If file is successfully processed by source, move or delete. By<br> default do nothing. If move files is set but target directory<br> does not exists, file will not be moved.<br> Check for property "timeout.start.post.process"|
 |**```recursive.directory.search```**|descend in flume's incoming subdirectories for processing files,<br> default is true. Check [Wiki](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#april-20-2018)|
-|**```timeout.start.post.process```**|Post-process files (delete or move) if 'timeout' seconds have passed<br> since the last modification of the file.|yes, if<br> property 'post.process.file' has been set.Be careful with <br>this property. The file's attribute Last modified time will<br> be checked and if exceeds the threshold (timeout)<br> files will be deleted. If file is still been <br> processed the delay will be increased in another x seconds.Check for more information on Notes os usage.
+|**```timeout.start.post.process```**|Post-process files (delete or move) if 'timeout' seconds have passed<br> since the last modification of the file. The file's attribute Last modified time will<br> be checked and if exceeds the threshold (timeout)<br> files will be deleted. If file is still been processed the delay will be increased <br> in another x seconds. Check for more information on Notes os usage. <br><br>***Be careful with this property. If the last modification of the file happens<br> later than the configured timeout, the event will be lost because the file<br> was deleted or moved by exceeding the threshold that determines <br> whether it could be erased or not***.
 
 ### Configurable parameters for the tracking of processed files.
 When a file is processed or at least a chunk of it, name, lines and size are stored in a map. Such a map is written to filesystem.
@@ -136,7 +136,9 @@ When a file is processed or at least a chunk of it, name, lines and size are sto
 |Parameter|Description|
 |------|-----------|
 |**```status.file.dir```**|Directory where a status file called \'\<sourcename>.ser\' will be created` for <br>keeping track of processed files. Default is temporal<br> folder.The serialized information is a simple<br> map of filename vs size |
-|**```time.interval.save.data```**| Interval of time between writes (flushes) from map to file ".ser".<br> Default is 3600 seconds (1 hour), and always when stopping source.<br> The smaller the number, the worse the performance.   |
+|**```save.processed.files.onStop```**|When stopping source, status file is written to disk.'true or false'. Default is true|
+|**```save.processed.files.scheduled```**|Schedule a task for writing status file to disk.'true or false'. Default is true|
+|**```time.interval.save.status```**| Interval of time between writes (flushes) from map to file ".ser".<br> Default is 3600 seconds (1 hour), and always when stopping source.<br> The smaller the number, the worse the performance.   |
 |**```max.count.map.files```**|When starting agent or reloading by config, the file 'sourcename.ser' with<br> map is loaded in memory.<br> This parameter sets a limit for number of files in map before loading. If total files in<br> map is upper than the parameter, a purge of the oldest files is triggered,<br> i.e. files which 'last modified time' attribute<br> is older than parameter 'timeout.file.old' will be deleted from<br> map. For example, default is 10000 files and one day timeout. So if reached limit,<br> delete from map yesterday processed files, supposing that agent was restarted today.|
 |**```timeout.file.old```**|with 'max.count.map.files', sets a limit for file to be enough old in time to be deleted from map.|
 |**```keep.deleted.files.in.map```**|When file has been processed it can be deleted or moved. In such<br> a case the default behavior is do not <br> remove the file's name from the map. Default is<br> true. If false, a file processed and deleted will be reprocessed.<br> In most cases we don't want to process a file already processed<br> (default behavior). For a rotating file in time (same file's name but<br> different content) can be useful. |
@@ -149,7 +151,7 @@ The following parameters regulate the internal behavior of vfs monitor responsib
 
 |Parameter|Description|
 |------|-----------|
-|**```delay.between.runs```**|The DefaultFileMonitor is a Thread based polling file system monitor with a 1<br> second delay, default is 10 seconds. It is and <br>advanced parameter use carefully. If processing losses events<br> (lines) for huge amount of files, or huge files, increasing this parameter should help.<br> The default is a delay of 10 second for every 1000 files processed|
+|**```delay.between.runs```**|The DefaultFileMonitor by Apache VFS is a Thread based polling file system monitor with a 1<br> second delay. We increase it to 10 seconds by defaualt. It is and <br>advanced parameter use carefully. If processing losses events<br> (lines) for huge amount of files, or huge files, increasing this parameter should help.<br> The default is a delay of 10 second for every 1000 files processed|
 |**```files.check.per.run```**|Set the number of files to check per run, default is 1000 files|
 
 

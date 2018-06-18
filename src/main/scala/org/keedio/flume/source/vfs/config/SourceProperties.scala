@@ -54,7 +54,13 @@ object SourceProperties {
   val TIMEOUT_FILE_IN_MAP_IS_OLD = "timeout.file.old"
   val DEFAULT_TIMEOUT_FILE_IN_MAP_IS_OLD = 24 * 60 * 60
 
-  val TIME_INTERVAL_SAVE_DATA = "time.interval.save.data"
-  val DEFAULT_TIME_INTERVAL_SAVE_DATA = 60L * 5L
+  val TIME_INTERVAL_SAVE_STATUS = "time.interval.save.status"
+  val DEFAULT_TIME_INTERVAL_SAVE_STATUS = 60L * 5L
+
+  val SAVE_PROCESSED_FILES_ONSTOP = "save.processed.files.onStop"
+  val DEFAULT_SAVE_PROCESSED_FILES_ONSTOP = true
+
+  val SAVE_PROCESSED_FILES_SCHEDULED = "save.processed.files.schedule"
+  val DEFAULT_SAVE_PROCESSED_FILES_SCHEDULED = true
 
 }
