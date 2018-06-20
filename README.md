@@ -28,16 +28,18 @@ mvn clean package
 1. **[Create plugins.d directory](https://flume.apache.org/FlumeUserGuide.html#the-plugins-d-directory).**
 2. **[Directory layout for plugins](https://flume.apache.org/FlumeUserGuide.html#directory-layout-for-plugins):**
 
-    ```
+   ```
     $ cd plugins.d
     $ mkdir flume-source-vfs
     $ cd flume-source-vfs
     $ mkdir lib
     $ cp flume-source-vfs.jar /lib
-     ```
+  ```
+
 
 3. **Create a config file, agent example**
-````
+
+```
 # www.keedio.com
 
 # example configuration for VFS sources.
@@ -118,17 +120,21 @@ The only required parameter for starting a agent with a Keedio vfs source is "wo
 |**```includePattern```**| [Java Regular Expression](https://docs.oracle.com/javase/7/docs/api/java/util/regex/Pattern.html) for matching files' names, example "\\\\.*.txt" just txt files|
 
 ###  Configurable parameters that control the behavior of file processing.
-The following parameters are optional. They control what the source should do when a file is found and if we want to do something else to
-the file after have been processed by flume.
+The following parameters are optional. They control what the source should do when a file is
+found and if we want to do something else to the file after have been processed by flume.
+It is intended for being useful in a use case where moving or deleting files is needed,
+after flume processes lines, but ideally the source should not do this (neither delete nor moving),
+because adds overhead.
 
 |Parameter                      |Description|
 |------------------------------ |-----------|
+|**```post.process.file```**        |If file is successfully processed by source, move or delete. By<br> default do nothing. If move files is set but target directory<br> does not exists, file will not be moved.This property adds overhead<br> and reduces performance. If the associated property "timeout.start.post.process"<br> is not set with a reasonable amount of seconds it can provoke loosing events.<br> Check for 'timeout.start.post.process'|   |
 |**```processed.dir```**|If property set, files processed will be moved to dir,<br> example /home/flume/out, remember check for permissions.|
+|**```timeout.start.post.process```**|Post-process files (delete or move) if 'timeout' seconds have passed<br> since the last modification of the file. The file's attribute Last modified time will<br> be checked and if exceeds the threshold (timeout)<br> files will be deleted. If file is still been processed the delay will be increased <br> in another x seconds. Check for more information on Notes os usage. <br><br>***Be careful with this property. If the last modification of the file happens<br> later than the configured timeout, the event will be lost because the file<br> was deleted or moved by exceeding the threshold that determines <br> whether it could be erased or not***.
 |**```process.discovered.files```**|process files that are located in the 'work.dir' before the agent<br> starts.Process or read on startup agent, default is true|
 |**```timeout.start.process```**              |Process file if 'timeout' seconds have passed since the<br> last modification of the file. Intended for huge files<br> being downloaded to incoming with high network latency.<br>For example 60 (seconds), The timeout set by this property<br> is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
-|**```post.process.file```**        |If file is successfully processed by source, move or delete. By<br> default do nothing. If move files is set but target directory<br> does not exists, file will not be moved.<br> Check for property "timeout.start.post.process"|
 |**```recursive.directory.search```**|descend in flume's incoming subdirectories for processing files,<br> default is true. Check [Wiki](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#april-20-2018)|
-|**```timeout.start.post.process```**|Post-process files (delete or move) if 'timeout' seconds have passed<br> since the last modification of the file. The file's attribute Last modified time will<br> be checked and if exceeds the threshold (timeout)<br> files will be deleted. If file is still been processed the delay will be increased <br> in another x seconds. Check for more information on Notes os usage. <br><br>***Be careful with this property. If the last modification of the file happens<br> later than the configured timeout, the event will be lost because the file<br> was deleted or moved by exceeding the threshold that determines <br> whether it could be erased or not***.
+
 
 ### Configurable parameters for the tracking of processed files.
 When a file is processed or at least a chunk of it, name, lines and size are stored in a map. Such a map is written to filesystem.
@@ -151,8 +157,8 @@ The following parameters regulate the internal behavior of vfs monitor responsib
 
 |Parameter|Description|
 |------|-----------|
-|**```delay.between.runs```**|The DefaultFileMonitor by Apache VFS is a Thread based polling file system monitor with a 1<br> second delay. We increase it to 10 seconds by defaualt. It is and <br>advanced parameter use carefully. If processing losses events<br> (lines) for huge amount of files, or huge files, increasing this parameter should help.<br> The default is a delay of 10 second for every 1000 files processed|
-|**```files.check.per.run```**|Set the number of files to check per run, default is 1000 files|
+|**```delay.between.runs```**|The DefaultFileMonitor by Apache VFS is a Thread based polling file system monitor with a 1<br> second delay. We increased it to 10 seconds by default. It is and <br>advanced parameter use carefully. If processing losses events<br> (lines) for huge amount of files, or huge files, increasing this parameter should help.<br> The default is a delay of 10 second for every 1000 files processed|
+|**```files.check.per.run```**|Set the number of files to check per run, default is 1000 files.This parameter can be useful<br> if we know in advance the number of files to be processed, and this amount is constant.<br> Combined with a proper 'delay.between.runs', performance can improve substantially,<br> but it does not work miracles. |
 
 
 ## Notes on usage.
@@ -166,6 +172,10 @@ The following parameters regulate the internal behavior of vfs monitor responsib
 | Scheme | Observations |
 | ------ | ------ |
 |  ftp  |   In most cases the ftp client will be behind a FW so Passive Mode is set to true by default. Active mode is not working in actual version. Anyway, if you need explicitly Active mode just set in source code `setPassiveMode(options, false)`. Actually not configurable via properties.|
+
+
+## Metrics Analysis
+Check for [Data table for metrics](https://github.com/keedio/Flume-ng-source-VFS/wiki/METRICS-ANALYSIS)
 
 ## Wiki
  [Documentation Flume-ng-source-VFS](https://github.com/keedio/Flume-ng-source-VFS/wiki)
