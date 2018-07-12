@@ -56,7 +56,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                 if (readStream(inputStream, fileName, 0)) {
                   LOG.info("End processing new file: " + fileName)
                   mapOfFiles += (fileName -> fileSize)
-                  saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
+                  //saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                   sourceVFScounter.incrementFilesCount()
                   sourceVFScounter.incrementCountSizeProc(fileSize)
                   postProcessFile(actionToTake, file)
@@ -82,7 +82,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                 LOG.info("End processing modified file: " + fileName)
                 mapOfFiles -= fileName
                 mapOfFiles += (fileName -> fileSize)
-                saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
+                //saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
               }
             }
           }
@@ -116,7 +116,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   if (readStream(inputStream, fileName, 0)) {
                     LOG.info("End processing discovered file: " + fileName)
                     mapOfFiles += (fileName -> fileSize)
-                    saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
+                    //saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                     sourceVFScounter.incrementFilesCount()
                     sourceVFScounter.incrementCountSizeProc(fileSize)
                     postProcessFile(actionToTake, file)
@@ -136,7 +136,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                       LOG.info("End processing modified file: " + fileName)
                       mapOfFiles -= fileName
                       mapOfFiles += (fileName -> fileSize)
-                      saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
+                      //saveMap(mapOfFiles, statusFile, fileName, event.getState.toString())
                     }
                   }
                   postProcessFile(actionToTake, file)
@@ -172,9 +172,12 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
     actionToTake = context.getString("post.process.file", "")
 
-    if (Files.exists(Paths.get(statusFile))) {
-      mapOfFiles = loadMap(statusFile)
-    }
+    /*
+    fix disable load o random corrupted map
+     */
+//    if (Files.exists(Paths.get(statusFile))) {
+//      mapOfFiles = loadMap(statusFile)
+//    }
   }
 
   override def start(): Unit = {
