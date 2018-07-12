@@ -17,8 +17,6 @@ import org.keedio.flume.source.vfs.util.SourceHelper
 import org.keedio.flume.source.vfs.watcher._
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.collection.mutable
-
 /**
   * Created by luislazaro on 7/3/16.
   * lalazaro@keedio.com
@@ -27,7 +25,8 @@ import scala.collection.mutable
 class SourceVFS extends AbstractSource with Configurable with EventDrivenSource {
 
   val LOG: Logger = LoggerFactory.getLogger(classOf[SourceVFS])
-  private var mapOfFiles = mutable.HashMap[String, (Long, Long, Long)]()
+  //private var mapOfFiles2 = mutable.HashMap[String, (Long, Long, Long)]()
+  private var mapOfFiles =  new ConcurrentHashMap[String, Tuple3[Long, Long, Long]]()
   private val mapFileAvailability = new scala.collection.mutable.HashMap[FileObject, Boolean]() with scala.collection
   .mutable.SynchronizedMap[FileObject, Boolean]
   private var sourceVFScounter = new org.keedio.flume.source.vfs.metrics.SourceCounterVfs("")
@@ -102,7 +101,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
               val lastModifiedTime = file.getContent.getLastModifiedTime
               LOG.info("Source " + sourceName + " received event: " + event.getState
                 .toString() + " file " + fileName)
-              val filesValue = mapOfFiles.getOrElse(fileName, (0L, 0L, 0L))
+              val filesValue = mapOfFiles.get(fileName)
               val prevLinesRead = filesValue._1
               val prevModifiedTime = filesValue._2
               val prevSize = filesValue._3
@@ -126,7 +125,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
                   } else {
                     val aux = fileSize > prevSize match {
-                      case true => mapOfFiles.getOrElse(fileName, (0L, 0L, 0L))._1
+                      case true => mapOfFiles.get(fileName)._1
                       case false => 0L
                     }
                     LOG.info("File exists in map of files, previous lines of file are " + prevLinesRead + " " + Thread
@@ -156,7 +155,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
               val file: FileObject = event.getFileChangeEvent.getFile
               val fileName = file.getName.getBaseName
               if (!propertiesHelper.isKeepFilesInMap) {
-                mapOfFiles -= fileName
+                mapOfFiles.remove(fileName)
               }
               LOG.info("Source " + sourceName + " received event: " + event.getState
                 .toString() + " file " + fileName)
@@ -176,7 +175,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
               mapFileAvailability += (file -> false)
               LOG.info("Source " + sourceName + " received event: " + event.getState
                 .toString() + " file " + fileName)
-              mapOfFiles.get(fileName).isDefined match {
+              mapOfFiles.contains(fileName) match {
                 case false =>
                   LOG.info(Thread.currentThread().getName + " started processing file discovered: " + fileName)
                   val linesRead = readStreamLines(file, 0L)
@@ -187,7 +186,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   }
 
                 case true => {
-                  val filesValue = mapOfFiles.getOrElse(fileName, (0L, 0L, 0L))
+                  val filesValue = mapOfFiles.get(fileName, (0L, 0L, 0L))
                   val prevLinesRead = filesValue._1
                   val prevModifiedTime = filesValue._2
                   val prevSize = filesValue._3
@@ -382,7 +381,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     file.refresh()
     val lastModifiedTime = file.getContent.getLastModifiedTime
     val fileSize = file.getContent.getSize
-    mapOfFiles += (filename -> (linesProcessed + linesLong, lastModifiedTime, fileSize))
+    mapOfFiles.put(filename, Tuple3(linesProcessed + linesLong, lastModifiedTime, fileSize))
     if (LOG.isDebugEnabled) {
       LOG.info("Save filename " + filename + " , " + linesProcessed + " , " + linesLong + " , " + lastModifiedTime
         + " , " + fileSize)
@@ -397,7 +396,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     * @param statusFile
     * @return
     */
-  def saveMap(mapOfFiles: mutable.Map[String, (Long, Long, Long)], statusFile: String):
+  def saveMap(mapOfFiles: ConcurrentHashMap[String, (Long, Long, Long)], statusFile: String):
   Boolean = {
     val oos = new ObjectOutputStream(new FileOutputStream(statusFile))
     try {
@@ -420,10 +419,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     * @param statusFile
     * @return
     */
-  def loadMap(statusFile: String): mutable.HashMap[String, (Long, Long, Long)] = {
+  def loadMap(statusFile: String):ConcurrentHashMap[String, (Long, Long, Long)] = {
     try {
       val ois = new ObjectInputStream(new FileInputStream(statusFile))
-      val mapOfFiles = ois.readObject().asInstanceOf[mutable.HashMap[String, (Long, Long, Long)]]
+      val mapOfFiles = ois.readObject().asInstanceOf[ConcurrentHashMap[String, (Long, Long, Long)]]
       ois.close()
       LOG.info("Load from file system map of processed files. " + statusFile)
       mapOfFiles
@@ -431,7 +430,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       case e: IOException =>
         LOG
           .warn("Map of files is could not be loaded for source " + sourceName + ".Generating new one.")
-        new mutable.HashMap[String, (Long, Long, Long)]()
+        new ConcurrentHashMap[String, (Long, Long, Long)]()
     }
   }
 

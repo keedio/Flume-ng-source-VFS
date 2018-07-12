@@ -1,5 +1,6 @@
 package org.keedio.flume.source.vfs.util
 
+import java.util.concurrent.ConcurrentHashMap
 import java.util.{Calendar, Date}
 
 import org.slf4j.{Logger, LoggerFactory}
@@ -63,10 +64,14 @@ object SourceHelper {
     * @param mapOfFiles
     * @return
     */
-  def purgeMapOfFiles(mapOfFiles: mutable.HashMap[String, (Long, Long, Long)], maxCountFiles: Int, maxAgeFiles: Int):
-  mutable.HashMap[String, (Long, Long, Long)] = {
+  def purgeMapOfFiles(mapOfFiles: ConcurrentHashMap[String, (Long, Long, Long)], maxCountFiles: Int, maxAgeFiles: Int):
+  ConcurrentHashMap[String, (Long, Long, Long)] = {
+
     if (mapOfFiles.size > maxCountFiles) {
-      mapOfFiles.filter(file => {
+      import scala.collection.JavaConversions.mapAsScalaMap
+      val scalaMutableMap = mutable.HashMap[String, (Long, Long, Long)]()
+      for((k,v) <- mapOfFiles) scalaMutableMap.put(k, v)
+      scalaMutableMap.filter(file => {
         val lasModifiedTimeFile = file._2._2
         val aux = SourceHelper.lastModifiedTimeExceededTimeout(lasModifiedTimeFile, maxAgeFiles)
         if (!aux && LOG.isDebugEnabled) {
@@ -74,8 +79,10 @@ object SourceHelper {
         }
         aux
       })
-    } else {
+      for((k,v) <- scalaMutableMap) mapOfFiles.put(k,v)
       mapOfFiles
+    } else {
+       mapOfFiles
     }
   }
 
