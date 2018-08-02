@@ -94,7 +94,7 @@ agent.sources.ftp1.processed.dir = ftp://user:pass@192.168.0.3/out
 agent.sources.ftp1.post.process.file = move
 
 ##end of sources configuration for Agent 'agent'
-````
+```
 
 
 4. **Move config file to conf directory**
