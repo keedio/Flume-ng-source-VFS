@@ -34,67 +34,63 @@ mvn clean package
     $ cd flume-source-vfs
     $ mkdir lib
     $ cp flume-source-vfs.jar /lib
-  ```
+    ```
+
 
 
 3. **Create a config file, agent example**
 
-```
-# www.keedio.com
+  ```
 
-# example configuration for VFS sources.
-# A single Agent with three sources, two local to filesystem and a third one pointing to remote FTP.
+    # example configuration for VFS sources.
+    # A single Agent with three sources, two local to filesystem and a third one pointing to remote FTP.
 
-# local1: process files in local directory called incoming_1. Files will be processed when 30 seconds
-#         have elapsed since the atributte lastmodifiedtime of the file has changed. Files to be processed must have
-#         extension "txt". If flume starts and incoming_1 already contains files, do not process them (discovered).
-#         When finish processing , move file to 'processed.dir'. Only source local1 will keep satus file for tracking
-#         processed files under path /home/flume/status_local1. The name of the file is local1.ser  (<sourcename>.ser)
-#         The other sources will keep its status file under temporal folder (default)
+    # local1: process files in local directory called incoming_1. Files will be processed when 30 seconds have elapsed since the atributte lastmodifiedtime of the file has changed. Files to be processed must have
+    # extension "txt". If flume starts and incoming_1 already contains files, do not process       them (discovered).
+    # When finish processing , move file to 'processed.dir'. Only source local1 will keep satus     file for tracking
+    # processed files under path /home/flume/status_local1. The name of the file is local1.ser      (<sourcename>.ser)
+    #The other sources will keep its status file under temporal folder (default)
 
-
-
+    #ACTIVE LIST
+    agent.sources =  local1 local2 ftp1
 
 
-#ACTIVE LIST
-agent.sources =  local1 local2 ftp1
+    #A source called local1 is retrieving files from local filesystem
 
-
-## A source called local1 is retrieving files from local filesystem
-
-agent.sources.local1.type = org.keedio.flume.source.vfs.source.SourceVFS
-agent.sources.local1.work.dir = /home/flume/incoming_1
-agent.sources.local1.includePattern = \\.*.txt
-agent.sources.local1.processed.dir = /home/flume/processed
-agent.sources.local1.process.discovered.files = false
-agent.sources.local1.timeout.start.process = 30
-agent.sources.local1.post.process.file = move
-agent.sources.local1.status.file.dir = /home/flume/status_local1
+    agent.sources.local1.type = org.keedio.flume.source.vfs.source.SourceVFS
+    agent.sources.local1.work.dir = /home/flume/incoming_1
+    agent.sources.local1.includePattern = \\.*.txt
+    agent.sources.local1.processed.dir = /home/flume/processed
+    agent.sources.local1.process.discovered.files = false
+    agent.sources.local1.timeout.start.process = 30
+    agent.sources.local1.post.process.file = move
+    agent.sources.local1.status.file.dir = /home/flume/status_local1
 
 
 
-## A source called local2 is retrieving files from local filesystem
+    #A source called local2 is retrieving files from local filesystem
 
-agent.sources.local2.type = org.keedio.flume.source.vfs.source.SourceVFS
-agent.sources.local2.work.dir = /home/flume/incoming_2
-agent.sources.local2.includePattern = \\.*.csv
-agent.sources.local2.processed.dir = /home/flume/processed
-agent.sources.local2.process.discovered.files = true
-agent.sources.local2.post.process.file = delete
+    agent.sources.local2.type = org.keedio.flume.source.vfs.source.SourceVFS
+    agent.sources.local2.work.dir = /home/flume/incoming_2
+    agent.sources.local2.includePattern = \\.*.csv
+    agent.sources.local2.processed.dir = /home/flume/processed
+    agent.sources.local2.process.discovered.files = true
+    agent.sources.local2.post.process.file = delete
 
 
 
-## A source called ftp1 is retrieving files from a remote FTP filesystem
+  #A source called ftp1 is retrieving files from a remote FTP filesystem
 
-agent.sources.ftp1.type = org.keedio.flume.source.vfs.source.SourceVFS
-agent.sources.ftp1.work.dir = ftp://user:pass@192.168.0.3/incoming
-agent.sources.ftp1.includePattern = \\.*.remote.txt
-agent.sources.ftp1.process.discovered.files = false
-agent.sources.ftp1.processed.dir = ftp://user:pass@192.168.0.3/out
-agent.sources.ftp1.post.process.file = move
+  agent.sources.ftp1.type = org.keedio.flume.source.vfs.source.SourceVFS
+  agent.sources.ftp1.work.dir = ftp://user:pass@192.168.0.3/incoming
+  agent.sources.ftp1.includePattern = \\.*.remote.txt
+  agent.sources.ftp1.process.discovered.files = false
+  agent.sources.ftp1.processed.dir = ftp://user:pass@192.168.0.3/out
+  agent.sources.ftp1.post.process.file = move
 
-##end of sources configuration for Agent 'agent'
-```
+  #end of sources configuration for Agent 'agent'
+
+  ```
 
 
 4. **Move config file to conf directory**
