@@ -131,7 +131,7 @@ because adds overhead.
 |**```post.process.file```**        |If file is successfully processed by source, move or delete. By<br> default do nothing. If move files is set but target directory<br> does not exists, file will not be moved.This property adds overhead<br> and reduces performance. If the associated property "timeout.start.post.process"<br> is not set with a reasonable amount of seconds it can provoke loosing events.<br> Check for 'timeout.start.post.process'|   |
 |**```processed.dir```**|If property set, files processed will be moved to dir,<br> example /home/flume/out, remember check for permissions.|
 |**```timeout.start.post.process```**|Post-process files (delete or move) if 'timeout' seconds have passed<br> since the last modification of the file. The file's attribute Last modified time will<br> be checked and if exceeds the threshold (timeout)<br> files will be deleted. If file is still been processed the delay will be increased <br> in another x seconds. Check for more information on Notes os usage. <br><br>***Be careful with this property. If the last modification of the file happens<br> later than the configured timeout, the event will be lost because the file<br> was deleted or moved by exceeding the threshold that determines <br> whether it could be erased or not***.
-|**```process.discovered.files```**|process files that are located in the 'work.dir' before the agent<br> starts.Process or read on startup agent, default is true|
+|**```process.discovered.files```**|Upon starting agent, there were already files. <br> Read on startup agent, default is true|
 |**```timeout.start.process```**              |Process file if 'timeout' seconds have passed since the<br> last modification of the file. Intended for huge files<br> being downloaded to incoming with high network latency.<br>For example 60 (seconds), The timeout set by this property<br> is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
 |**```recursive.directory.search```**|descend in flume's incoming subdirectories for processing files,<br> default is true. Check [Wiki](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#april-20-2018)|
 
@@ -143,7 +143,7 @@ When a file is processed or at least a chunk of it, name, lines and size are sto
 |------|-----------|
 |**```status.file.dir```**|Directory where a status file called \'\<sourcename>.ser\' will be created` for <br>keeping track of processed files. Default is temporal<br> folder.The serialized information is a simple<br> map of filename vs size |
 |**```save.processed.files.onStop```**|When stopping source, status file is written to disk.'true or false'. Default is true|
-|**```save.processed.files.scheduled```**|Schedule a task for writing status file to disk.'true or false'. Default is true|
+|**```save.processed.files.schedule```**|Schedule a task for writing status file to disk.'true or false'. Default is true,<br> false will not save data, except on stopping agent <br> (if property save.processed.files.onStop is false)|
 |**```time.interval.save.status```**| Interval of time between writes (flushes) from map to file ".ser".<br> Default is 3600 seconds (1 hour), and always when stopping source.<br> The smaller the number, the worse the performance.   |
 |**```max.count.map.files```**|When starting agent or reloading by config, the file 'sourcename.ser' with<br> map is loaded in memory.<br> This parameter sets a limit for number of files in map before loading. If total files in<br> map is upper than the parameter, a purge of the oldest files is triggered,<br> i.e. files which 'last modified time' attribute<br> is older than parameter 'timeout.file.old' will be deleted from<br> map. For example, default is 10000 files and one day timeout. So if reached limit,<br> delete from map yesterday processed files, supposing that agent was restarted today.|
 |**```timeout.file.old```**|with 'max.count.map.files', sets a limit for file to be enough old in time to be deleted from map.|
@@ -172,6 +172,20 @@ The following parameters regulate the internal behavior of vfs monitor responsib
 | Scheme | Observations |
 | ------ | ------ |
 |  ftp  |   In most cases the ftp client will be behind a FW so Passive Mode is set to true by default. Active mode is not working in actual version. Anyway, if you need explicitly Active mode just set in source code `setPassiveMode(options, false)`. Actually not configurable via properties.|
+
+
+## Basic information on events and traceability
+
+|Message|Description|
+|-------|-----------|
+|INFO Source stest1 received event: entry_create file file1.txt|A new file was created in "incoming flume"|
+|INFO started processing new file: file1.txt| process under flume started|
+|INFO End processing new file: file1.txt| End of file reached|
+|INFO Source stest1 received event: entry_modify file file1.txt| the file has undergone a change, somehow|
+|INFO File exists in map of files, previous lines of file are 2 started processing modified file: file1.txt| start processing changes from line two onwards|
+|INFO Source stest1 received event: entry_delete file file1.txt| File was deleted|
+
+
 
 
 ## Metrics Analysis
