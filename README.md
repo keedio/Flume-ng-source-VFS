@@ -9,8 +9,11 @@ Files created or modified will be discovered and sent to flume to be processed b
 ## Supported File Systems
 Apache Commons VFS supports [multiple file systems](https://commons.apache.org/proper/commons-vfs/filesystems.html), however Flume-ng-source-vfs has only been tested in the following one:
 
-* **File**: `file:///home/someuser/somedir`  , `C:\\flume_incoming`
-* **FTP**:  `ftp://myusername:mypassword@somehost/somedir`
+
+|File System|URI flume files|
+|-----------|-----------------|
+| **File**|`file:///home/someuser/somedir`<br> `C:\\flume_incoming` <br> `/home/flume/incoming`|
+|**FTP**|  `ftp://myusername:mypassword@somehost/somedir`|`
 
 ## Compilation and packaging
 1.**Clone the project:**
