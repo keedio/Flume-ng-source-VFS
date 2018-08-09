@@ -29,6 +29,7 @@ mvn clean package
 ### Deployment and launching ###
 
 1.**[Create plugins.d directory](https://flume.apache.org/FlumeUserGuide.html#the-plugins-d-directory).**
+
 2.**[Directory layout for plugins](https://flume.apache.org/FlumeUserGuide.html#directory-layout-for-plugins):**
 ```
 $ cd plugins.d
