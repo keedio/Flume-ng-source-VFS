@@ -1,8 +1,11 @@
 package org.keedio.flume.source.vfs.util
 
+import java.util.concurrent.ConcurrentHashMap
 import java.util.{Calendar, Date}
 
 import org.slf4j.{Logger, LoggerFactory}
+
+import scala.collection.mutable
 
 /**
   * Created by luislazaro on 5/6/18.
@@ -32,7 +35,6 @@ object SourceHelper {
     dateModified.compareTo(timeoutAgo) > 0
   }
 
-
   /**
     * Returns the timeout set by user but adjusted with the accuracy of the last modification time provided
     * by the file system.
@@ -54,6 +56,34 @@ object SourceHelper {
     }
 
     adjustedTimeout
+  }
+
+  /**
+    * Check for a maximum count files in map. If true, filter the youngest.
+    *
+    * @param mapOfFiles
+    * @return
+    */
+  def purgeMapOfFiles(mapOfFiles: ConcurrentHashMap[String, (Long, Long, Long)], maxCountFiles: Int, maxAgeFiles: Int):
+  ConcurrentHashMap[String, (Long, Long, Long)] = {
+
+    if (mapOfFiles.size > maxCountFiles) {
+      import scala.collection.JavaConversions.mapAsScalaMap
+      val scalaMutableMap = mutable.HashMap[String, (Long, Long, Long)]()
+      for((k,v) <- mapOfFiles) scalaMutableMap.put(k, v)
+      scalaMutableMap.filter(file => {
+        val lasModifiedTimeFile = file._2._2
+        val aux = SourceHelper.lastModifiedTimeExceededTimeout(lasModifiedTimeFile, maxAgeFiles)
+        if (!aux && LOG.isDebugEnabled) {
+          LOG.debug("File " + file + " has been removed from map when starting source, is older than " + maxAgeFiles)
+        }
+        aux
+      })
+      for((k,v) <- scalaMutableMap) mapOfFiles.put(k,v)
+      mapOfFiles
+    } else {
+       mapOfFiles
+    }
   }
 
 }

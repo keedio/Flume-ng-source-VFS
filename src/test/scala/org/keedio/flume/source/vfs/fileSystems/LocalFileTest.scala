@@ -506,6 +506,9 @@ class LocalFileTest {
     context.put("process.discovered.files", "false")
     context.put("timeout.files", "0")
     context.put("delay.between.runs", "2")
+    context.put("time.interval.save.data", "1")
+    context.put("save.processed.files.onStop", "true");
+    context.put("save.processed.files.schedule", "false")
     Configurables.configure(source, context)
     source.start()
 
@@ -529,12 +532,13 @@ class LocalFileTest {
     Assert.assertEquals(source.getSourceVfsCounter.getEventCount, 2)
     Assert.assertEquals(source.getSourceVfsCounter.getFilesCount, 1)
 
-    source.stop()
-    Thread.sleep(2000)
-    source.start()
+    source.stop
 
+    source.start()
     Assert.assertEquals(source.getSourceVfsCounter.getEventCount, 2)
     Assert.assertEquals(source.getSourceVfsCounter.getFilesCount, 1)
+
+    source.stop()
 
   }
 
@@ -547,6 +551,7 @@ class LocalFileTest {
     context.put("timeout.files", "0")
     context.put("status.file.dir", pathToSave.toString)
     context.put("delay.between.runs", "2")
+    context.put("save.processed.files.schedule", "false")
     Configurables.configure(source, context)
     source.start()
 
@@ -573,6 +578,7 @@ class LocalFileTest {
     source.stop()
     Thread.sleep(2000)
     source.start()
+
 
     Assert.assertEquals(source.getSourceVfsCounter.getEventCount, 2)
     Assert.assertEquals(source.getSourceVfsCounter.getFilesCount, 1)

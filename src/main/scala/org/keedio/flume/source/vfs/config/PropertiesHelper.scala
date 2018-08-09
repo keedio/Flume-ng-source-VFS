@@ -1,7 +1,7 @@
 package org.keedio.flume.source.vfs.config
 
 import java.lang
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 import org.apache.flume.Context
 import org.keedio.flume.source.vfs.config.SourceProperties._
@@ -33,6 +33,11 @@ class PropertiesHelper(context: Context, sourceName: String) {
   private val filesPerRun = context.getInteger(MAX_FILES_CHECK_PER_RUN, DEFAULT_FILES_CHECK_PER_RUN)
   private val timeoutPostProcess = context.getLong(TIMEOUT_POST_PROCESS_FILES, DEFAULT_TIMEOUT_POST_PROCESS_FILES)
   private val initialDelayPostProcess = context.getLong(INITIAL_DELAY_TIMEOUT_POST_PROCESS_FILES, DEFAULT_INITIAL_DELAY_TIMEOUT_POST_PROCESS_FILES)
+  private val maxFilesMapCount = context.getInteger(MAX_LIMIT_MAP_FILES_COUNT, DEFAULT_MAX_LIMIT_MAP_FILES_COUNT)
+  private val timeoutFileOld = context.getInteger(TIMEOUT_FILE_IN_MAP_IS_OLD, DEFAULT_TIMEOUT_FILE_IN_MAP_IS_OLD)
+  private val timeIntervalSaveData = context.getLong(TIME_INTERVAL_SAVE_STATUS, DEFAULT_TIME_INTERVAL_SAVE_STATUS)
+  private val saveStatusFilesOnStop = context.getBoolean(SAVE_PROCESSED_FILES_ONSTOP, DEFAULT_SAVE_PROCESSED_FILES_ONSTOP)
+  private val saveStatusFilesScheduled = context.getBoolean(SAVE_PROCESSED_FILES_SCHEDULED, DEFAULT_SAVE_PROCESSED_FILES_SCHEDULED)
 
   def getWorkingDirectory: String = workingDirectory
 
@@ -47,6 +52,9 @@ class PropertiesHelper(context: Context, sourceName: String) {
   def getActionToTakeAfterProcessingFiles: String = actionToTake
 
   def getStatusFile: String = {
+    if (statusFilePath == context.getString(PATH_TO_STATUS_FILE)) {
+      require(Files.exists(Paths.get(statusFilePath)), s"Configured '${SourceProperties.PATH_TO_STATUS_FILE}=$statusFilePath' not exits.")
+    }
     val pathTo: Path = Paths.get(statusFilePath)
     val statusFileName: String = sourceName + ".ser"
     Paths.get(pathTo.toString, statusFileName).toString
@@ -62,6 +70,16 @@ class PropertiesHelper(context: Context, sourceName: String) {
   def getTimeoutPostProcess: lang.Long = timeoutPostProcess
 
   def getInitialDelayPostProcess: lang.Long = initialDelayPostProcess
+
+  def getMaxFilesMapCount: Integer = maxFilesMapCount
+
+  def getTimeoutFileOld =  timeoutFileOld
+
+  def getTimeIntervalSaveData = timeIntervalSaveData
+
+  def isSaveStatusFilesOnStop = saveStatusFilesOnStop
+
+  def isSaveStatusFilesScheduled = saveStatusFilesScheduled
 
 }
 

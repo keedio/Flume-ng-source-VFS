@@ -48,9 +48,19 @@ object SourceProperties {
   val INITIAL_DELAY_TIMEOUT_POST_PROCESS_FILES = "initial.delay.post.process"
   val DEFAULT_INITIAL_DELAY_TIMEOUT_POST_PROCESS_FILES = 60L
 
+  val MAX_LIMIT_MAP_FILES_COUNT = "max.count.map.files"
+  val DEFAULT_MAX_LIMIT_MAP_FILES_COUNT = 10000
 
+  val TIMEOUT_FILE_IN_MAP_IS_OLD = "timeout.file.old"
+  val DEFAULT_TIMEOUT_FILE_IN_MAP_IS_OLD = 24 * 60 * 60
 
+  val TIME_INTERVAL_SAVE_STATUS = "time.interval.save.status"
+  val DEFAULT_TIME_INTERVAL_SAVE_STATUS = 60L * 5L
 
+  val SAVE_PROCESSED_FILES_ONSTOP = "save.processed.files.onStop"
+  val DEFAULT_SAVE_PROCESSED_FILES_ONSTOP = true
 
+  val SAVE_PROCESSED_FILES_SCHEDULED = "save.processed.files.schedule"
+  val DEFAULT_SAVE_PROCESSED_FILES_SCHEDULED = true
 
 }

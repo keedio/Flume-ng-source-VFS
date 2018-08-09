@@ -1,10 +1,10 @@
 
 package org.keedio.flume.source.vfs.metrics
 
+import java.util.concurrent.atomic.AtomicLong
+
 import org.apache.flume.instrumentation.MonitoredCounterGroup
 import org.joda.time.{DateTime, Period}
-
-
 
 class SourceCounterVfs(val name: String)
   extends MonitoredCounterGroup(MonitoredCounterGroup.Type.SOURCE, name,
@@ -18,7 +18,7 @@ class SourceCounterVfs(val name: String)
       "fileThroughput",
       "bytesProcessed",
       "KbProcessed",
-      "MbProcessed"):_*)
+      "MbProcessed"): _*)
     with SourceCounterVfsMBean {
   private var files_count = 0L
   private var eventCount = 0L
@@ -43,18 +43,22 @@ class SourceCounterVfs(val name: String)
     "MbProcessed"
   )
 
-
+  val atomicFilesCount = new AtomicLong(0L)
   /**
     * @return long, number of files discovered
     */
-  override def getFilesCount: Long = files_count
+  override def getFilesCount: Long = {
+    atomicFilesCount.get
+  }
+
+  val atomicEventCount = new AtomicLong(0L)
 
   override def incrementEventCount(): Unit = {
     lastEventSent = System.currentTimeMillis
-    eventCount += 1
+    atomicEventCount.getAndIncrement()
     if (lastEventSent - start_time >= 1000) {
       val secondsElapsed = (lastEventSent - start_time) / 1000
-      eventThroughput = eventCount / secondsElapsed
+      eventThroughput = atomicEventCount.get() / secondsElapsed
     }
   }
 
@@ -62,14 +66,16 @@ class SourceCounterVfs(val name: String)
     *
     * @return long
     */
-  override def getEventCount: Long = eventCount
+  override def getEventCount: Long = {
+    atomicEventCount.get()
+  }
 
   override def incrementFilesCount(): Unit = {
     lastFileSent = System.currentTimeMillis();
-    files_count += 1
+    atomicFilesCount.getAndIncrement()
     if (lastFileSent - start_time >= 1000) {
       val secondsElapsed = (lastFileSent - start_time) / 1000
-      fileThroughput = files_count / secondsElapsed
+      fileThroughput = atomicFilesCount.get / secondsElapsed
     }
   }
 
@@ -111,13 +117,13 @@ class SourceCounterVfs(val name: String)
   }
 
   override def getRunningTime: String = {
-     (eventCount > 0) match {
-       case true => {
-         val period = new Period( new DateTime(start_time), new DateTime())
-         new String(period.getDays + " " +
-           period.getHours + ":" + period.getMinutes + ":" + period.getSeconds)
-       }
-       case false => "no events"
+    (getEventCount > 0L) match {
+      case true => {
+        val period = new Period(new DateTime(start_time), new DateTime())
+        new String(period.getDays + " " +
+          period.getHours + ":" + period.getMinutes + ":" + period.getSeconds)
+      }
+      case false => "no events"
     }
   }
 
