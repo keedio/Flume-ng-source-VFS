@@ -1,7 +1,7 @@
 package org.keedio.flume.source.vfs.config
 
 import java.lang
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 import org.apache.flume.Context
 import org.keedio.flume.source.vfs.config.SourceProperties._
@@ -52,6 +52,9 @@ class PropertiesHelper(context: Context, sourceName: String) {
   def getActionToTakeAfterProcessingFiles: String = actionToTake
 
   def getStatusFile: String = {
+    if (statusFilePath == context.getString(PATH_TO_STATUS_FILE)) {
+      require(Files.exists(Paths.get(statusFilePath)), s"Configured '${SourceProperties.PATH_TO_STATUS_FILE}=$statusFilePath' not exits.")
+    }
     val pathTo: Path = Paths.get(statusFilePath)
     val statusFileName: String = sourceName + ".ser"
     Paths.get(pathTo.toString, statusFileName).toString
