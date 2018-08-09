@@ -12,8 +12,8 @@ Apache Commons VFS supports [multiple file systems](https://commons.apache.org/p
 
 |File System|URI flume files|
 |-----------|-----------------|
-| **File**|`file:///home/someuser/somedir`<br> `C:\\flume_incoming` <br> `/home/flume/incoming`|
-|**FTP**|  `ftp://myusername:mypassword@somehost/somedir`|`
+| File|`file:///home/someuser/somedir`<br> `C:\\flume_incoming` <br> `/home/flume/incoming`|
+|FTP|  `ftp://myusername:mypassword@somehost/somedir`|`
 
 ## Compilation and packaging
 1.**Clone the project:**
@@ -28,25 +28,20 @@ mvn clean package
 
 ### Deployment and launching ###
 
-1. **[Create plugins.d directory](https://flume.apache.org/FlumeUserGuide.html#the-plugins-d-directory).**
-2. **[Directory layout for plugins](https://flume.apache.org/FlumeUserGuide.html#directory-layout-for-plugins):**
+1.**[Create plugins.d directory](https://flume.apache.org/FlumeUserGuide.html#the-plugins-d-directory).**
+2.**[Directory layout for plugins](https://flume.apache.org/FlumeUserGuide.html#directory-layout-for-plugins):**
+```
+$ cd plugins.d
+$ mkdir flume-source-vfs
+$ cd flume-source-vfs
+$ mkdir lib
+$ cp flume-source-vfs.jar /lib
+```
 
-   ```
-    $ cd plugins.d
-    $ mkdir flume-source-vfs
-    $ cd flume-source-vfs
-    $ mkdir lib
-    $ cp flume-source-vfs.jar /lib
-    ```
-
-
-
-3. **Create a config file, agent example**
-
-  ```
-
-    # example configuration for VFS sources.
-    # A single Agent with three sources, two local to filesystem and a third one pointing to remote FTP.
+3.**Create a config file, agent example:**
+```
+ # example configuration for VFS sources.
+ # A single Agent with three sources, two local to filesystem and a third one pointing to remote FTP.
 
     # local1: process files in local directory called incoming_1. Files will be processed when 30 seconds have elapsed since the atributte lastmodifiedtime of the file has changed. Files to be processed must have
     # extension "txt". If flume starts and incoming_1 already contains files, do not process       them (discovered).
@@ -80,33 +75,27 @@ mvn clean package
     agent.sources.local2.process.discovered.files = true
     agent.sources.local2.post.process.file = delete
 
+    #A source called ftp1 is retrieving files from a remote FTP filesystem
 
+    agent.sources.ftp1.type = org.keedio.flume.source.vfs.source.SourceVFS
+    agent.sources.ftp1.work.dir = ftp://user:pass@192.168.0.3/incoming
+    agent.sources.ftp1.includePattern = \\.*.remote.txt
+    agent.sources.ftp1.process.discovered.files = false
+    agent.sources.ftp1.processed.dir = ftp://user:pass@192.168.0.3/out
+    agent.sources.ftp1.post.process.file = move
 
-  #A source called ftp1 is retrieving files from a remote FTP filesystem
+    #end of sources configuration for Agent 'agent'
+```
 
-  agent.sources.ftp1.type = org.keedio.flume.source.vfs.source.SourceVFS
-  agent.sources.ftp1.work.dir = ftp://user:pass@192.168.0.3/incoming
-  agent.sources.ftp1.includePattern = \\.*.remote.txt
-  agent.sources.ftp1.process.discovered.files = false
-  agent.sources.ftp1.processed.dir = ftp://user:pass@192.168.0.3/out
-  agent.sources.ftp1.post.process.file = move
+4.**Move config file to conf directory**
+ ```
+$ cp flume-ng-source-vfs.conf  apache-flume-1.8.0-bin/conf/
+ ```
 
-  #end of sources configuration for Agent 'agent'
-
-  ```
-
-
-4. **Move config file to conf directory**
-
-     ```
-     $ cp flume-ng-source-vfs.conf  apache-flume-1.8.0-bin/conf/
-     ```
-
-5. **Launch flume binary:**
-
-     ```
-    $ ./bin/flume-ng agent -c conf -conf-file conf/flume-ng-source-vfs.conf --name agent -Dflume.root.logger=INFO,console
-     ```
+5.**Launch flume binary:**
+```
+$ ./bin/flume-ng agent -c conf -conf-file conf/flume-ng-source-vfs.conf --name agent -Dflume.root.logger=INFO,console
+```
 
 ## Configuration
 
