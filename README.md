@@ -119,18 +119,18 @@ because adds overhead.
 |------------------------------ |-----------|
 |**```post.process.file```**        |If file is successfully processed by source, move or delete. By<br> default do nothing. If move files is set but target directory<br> does not exists, file will not be moved.This property adds overhead<br> and reduces performance. If the associated property "timeout.start.post.process"<br> is not set with a reasonable amount of seconds it can provoke loosing events.<br> Check for 'timeout.start.post.process'|   |
 |**```processed.dir```**|If property set, files processed will be moved to dir,<br> example /home/flume/out, remember check for permissions.|
-|**```timeout.start.post.process```**|Post-process files (delete or move) if 'timeout' seconds have passed<br> since the last modification of the file. The file's attribute Last modified time will<br> be checked and if exceeds the threshold (timeout)<br> files will be deleted. If file is still been processed the delay will be increased <br> in another x seconds. Check for more information on Notes os usage. <br><br>***Be careful with this property. If the last modification of the file happens<br> later than the configured timeout, the event will be lost because the file<br> was deleted or moved by exceeding the threshold that determines <br> whether it could be erased or not***.
+|**```timeout.start.post.process```**|Post-process files (delete or move) if 'timeout' seconds have passed<br> since the last modification of the file. The file's attribute Last modified time will<br> be checked and if exceeds the threshold (timeout)<br> files will be deleted. If file is still been processed the delay will be increased <br> in another x seconds. Check for more information on Notes os usage. <br><br>***Be careful with this property. If the last modification of the file happens<br> later than the configured timeout, the event will be lost because the file<br> was deleted or moved by exceeding the threshold that determines <br> whether it could be erased or not, i.e., if a new line arrives to a file thas was deleted.***
 |**```process.discovered.files```**|Upon starting agent, there were already files. <br> Read on startup agent, default is true|
 |**```timeout.start.process```**              |Process file if 'timeout' seconds have passed since the<br> last modification of the file. Intended for huge files<br> being downloaded to incoming with high network latency.<br>For example 60 (seconds), The timeout set by this property<br> is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
 |**```recursive.directory.search```**|descend in flume's incoming subdirectories for processing files,<br> default is true. Check [Wiki](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#april-20-2018)|
 
 
 ### Configurable parameters for the tracking of processed files.
-When a file is processed or at least a chunk of it, name, lines and size are stored in a map. Such a map is written to filesystem.
+When a file is processed or at least a chunk of it, name, lines and size are stored in a map. Such a map is written to localfile system.
 
 |Parameter|Description|
 |------|-----------|
-|**```status.file.dir```**|Directory where a status file called \'\<sourcename>.ser\' will be created` for <br>keeping track of processed files. Default is temporal<br> folder.The serialized information is a simple<br> map of filename vs size |
+|**```status.file.dir```**|Directory where a status file called \'\<sourcename>.ser\' will be created` for <br>keeping track of processed files. Default is temporal<br> folder. The serialized information is a simple<br> map of filename vs size. |
 |**```save.processed.files.onStop```**|When stopping source, status file is written to disk.'true or false'. Default is true|
 |**```save.processed.files.schedule```**|Schedule a task for writing status file to disk.'true or false'. Default is true,<br> false will not save data, except on stopping agent <br> (if property save.processed.files.onStop is false)|
 |**```time.interval.save.status```**| Interval of time between writes (flushes) from map to file ".ser".<br> Default is 3600 seconds (1 hour), and always when stopping source.<br> The smaller the number, the worse the performance.   |
@@ -155,6 +155,7 @@ The following parameters regulate the internal behavior of vfs monitor responsib
 + If a file haven been correctly processed, it's name and size are tracked in an external file than is reloaded when flume is restarted. This file is saved on temporal directory. If flume stops and a file is not yet finished processing, the file will be processed again since start, producing repeated messages.
 + When a file has been processed by flume, by default file will remain in directory "incoming", unless an action to take has been set via property 'post.process.file'. In such a case, if file is moved or deleted, the file's name will be removed from the tracking map. If for some reason the same file reappears in flumes's incoming the file will be reprocessed again producing duplicated events. Setting to true 'keep.deleted.files.in.map' will avoid such a use case.
 + To be able to delete or move the files when they have finished processing by flume, when the source starts, it triggers a program that iterates over the files processed, checking if the last modified time is higher than the threshold set in the configurable property.
++ For saving status, you cant set property 'status.file.dir'. If path does not exists exception will be launched. If not set status file will be kept under temporal folder. For avoid saving data, set properties ('save.processed.files.onStop', 'save.processed.files.schedule') explicitly to 'false'.
 
 ## Notes on supported and tested file systems ##
 

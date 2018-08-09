@@ -134,7 +134,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   } else {
                     if (LOG.isDebugEnabled) {
                       LOG.debug(
-                        s"Old modification was received, discarded: " +
+                        s"Expired event modification was received, discarded: " +
                           s"File: $fileName," +
                           s" avalailable is $available," +
                           s" actualfileSize is $fileSize," +
@@ -195,39 +195,49 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   }
 
                 case true => {
-                  val filesValue = mapOfFiles.getOrDefault(fileName, (0L, 0L, 0L))
+                  val filesValue = mapOfFiles.get(fileName)
                   val prevLinesRead = filesValue._1
                   val prevModifiedTime = filesValue._2
                   val prevSize = filesValue._3
-                  if (prevSize == fileSize && lastModifiedTime == prevModifiedTime) {
-                    LOG.info("File exists in map of files, previous size of file is " + prevSize + " " + Thread
-                      .currentThread().getName + " nothing to do, file remains unchanged " + fileName)
-
-                  } else if (prevSize == fileSize && lastModifiedTime != prevModifiedTime) {
-                    if (LOG.isDebugEnabled()) {
-                      LOG.info("File exists in map of files, size is the same but lastModifiedTime changed " + Thread
-                        .currentThread().getName +
-                        " started processing modified file: " + fileName)
-                    }
-                    mapFileAvailability put(file, false)
-                    val linesRead = readStreamLines(file, 0L)
-                    if (linesRead != 0) {
-                      LOG.info("End processing modified file: " + fileName)
-                      mapFileAvailability put(file, true)
-                    }
-                  } else {
+                  if (fileSize > prevSize) {
                     LOG.info("File exists in map of files, previous lines of file are " + prevLinesRead + " " + Thread
                       .currentThread().getName +
                       " started processing modified file: " + fileName)
-                    mapFileAvailability put(file, false)
-                    val linesRead = readStreamLines(file, prevLinesRead)
-                    if (linesRead != 0) {
+                    mapFileAvailability replace(file, false)
+                    val linesRead = readStreamLines(file, mapOfFiles.get(fileName)._1)
+                    if (linesRead > 0) {
                       LOG.info("End processing modified file: " + fileName)
-                      mapFileAvailability put(file, true)
+                      mapFileAvailability replace(file, true)
                     } else {
-                      LOG.info("lines read " + linesRead + " do nothing")
+                      LOG.info(s"A modification event was sent for $fileName but lines read $linesRead, do nothing.")
+                    }
+                  } else if (fileSize < prevSize && lastModifiedTime > prevModifiedTime) {
+                    LOG.info(s"$fileName was modified from first line, start processing from line 0.")
+                    mapFileAvailability replace(file, false)
+                    val linesRead = readStreamLines(file, 0L)
+                    if (linesRead > 0) {
+                      LOG.info(s"End processing modified file $fileName from first line.")
+                      mapFileAvailability replace(file, true)
+                    } else {
+                      LOG.info(s"A modification event was sent for $fileName but lines read $linesRead, do nothing.")
+                    }
+                  } else if (prevSize == fileSize && lastModifiedTime == prevModifiedTime) {
+                    LOG.info("File exists in map of files, previous size of file is " + prevSize + " " + Thread
+                      .currentThread().getName + " nothing to do, file remains unchanged " + fileName)
+                  } else {
+                    if (LOG.isDebugEnabled) {
+                      LOG.debug(
+                        s"Expired event modification was received, discarded: " +
+                          s"File: $fileName," +
+                          //s" avalailable is $available," +
+                          s" actualfileSize is $fileSize," +
+                          s" prevSize is  $prevSize," +
+                          s" lastModifiedTime is $lastModifiedTime, " +
+                          s" prevModifiedTime is $prevModifiedTime," +
+                          s" prevLinesRead is $prevLinesRead ")
                     }
                   }
+
                 }
               }
             }
