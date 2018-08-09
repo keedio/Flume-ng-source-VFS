@@ -2,7 +2,6 @@ package org.keedio.flume.source.vfs.source
 
 import java.io._
 import java.nio.charset.Charset
-import java.nio.file.{Files, Paths}
 import java.util
 import java.util.concurrent.{Executors, _}
 import java.util.function.Consumer
@@ -68,24 +67,24 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
               val fileContent = file.getContent
               val fileSize = fileContent.getSize
               mapFileAvailability put(file, false)
-              if (mapOfFiles.contains(fileName)) {
+              if (mapOfFiles.containsKey(fileName)) {
                 LOG
                   .info("File  " + fileName + " was already processed, do nothing !. If desired behavior is to " +
                     "reprocess "
                     + "file, set property " + SourceProperties
                     .RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS + " to false (or just remove property).")
-                mapFileAvailability put(file, true)
+                mapFileAvailability replace(file, true)
               } else {
                 LOG.info("Source " + sourceName + " received event: " + event.getState
                   .toString() + " file " + fileName)
                 LOG.info(Thread.currentThread().getName + " started processing new file: " + fileName)
                 val linesRead = readStreamLines(file, 0L)
                 if (linesRead != 0) {
-                  mapFileAvailability put(file, true)
+                  mapFileAvailability replace(file, true)
                   LOG.info("End processing new file: " + fileName)
                   sourceVFScounter.incrementFilesCount()
                 } else {
-                  LOG.info("lines read " + linesRead + " do nothing")
+                  LOG.info(s"Lines read for $fileName " + linesRead + " do nothing because file was created but there is still no content.")
                 }
               }
             }
@@ -107,44 +106,52 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
               val prevLinesRead = filesValue._1
               val prevModifiedTime = filesValue._2
               val prevSize = filesValue._3
-              val available = mapFileAvailability.getOrDefault(file, true)
+              val available = mapFileAvailability.getOrDefault(file, false)
               available match {
                 case true => {
-                  if (prevSize == fileSize && lastModifiedTime == prevModifiedTime) {
-                    LOG.info("File exists in map of files, previous size of file is " + prevSize + " " + Thread
-                      .currentThread().getName + " nothing to do, file remains unchanged " + fileName)
-                    Unit
-                  } else if (prevSize == fileSize && lastModifiedTime != prevModifiedTime) {
-                    LOG.info("File exists in map of files, size is the same but lastModifiedTime changed " + Thread
-                      .currentThread().getName +
-                      " started processing modified file: " + fileName)
-                    mapFileAvailability put(file, false)
-                    val linesRead = readStreamLines(file, 0L)
-                    if (linesRead != 0) {
-                      LOG.info("End processing modified file: " + fileName)
-                      mapFileAvailability put(file, true)
-                    }
-
-                  } else {
-                    val aux = fileSize > prevSize match {
-                      case true => mapOfFiles.get(fileName)._1
-                      case false => 0L
-                    }
+                  if (fileSize > prevSize) {
                     LOG.info("File exists in map of files, previous lines of file are " + prevLinesRead + " " + Thread
                       .currentThread().getName +
                       " started processing modified file: " + fileName)
-                    mapFileAvailability put(file, false)
-                    val linesRead = readStreamLines(file, aux)
-                    if (linesRead != 0) {
+                    mapFileAvailability replace(file, false)
+                    val linesRead = readStreamLines(file, mapOfFiles.get(fileName)._1)
+                    if (linesRead > 0) {
                       LOG.info("End processing modified file: " + fileName)
-                      mapFileAvailability put(file, true)
+                      mapFileAvailability replace(file, true)
                     } else {
-                      LOG.info("lines read " + linesRead + " do nothing")
+                      LOG.info(s"A modification event was sent for $fileName but lines read $linesRead, do nothing.")
+                    }
+                  } else if (fileSize < prevSize && lastModifiedTime > prevModifiedTime) {
+                    LOG.info(s"$fileName was modified from first line, start processing from line 0.")
+                    mapFileAvailability replace(file, false)
+                    val linesRead = readStreamLines(file, 0L)
+                    if (linesRead > 0) {
+                      LOG.info(s"End processing modified file $fileName from first line.")
+                      mapFileAvailability replace(file, true)
+                    } else {
+                      LOG.info(s"A modification event was sent for $fileName but lines read $linesRead, do nothing.")
+                    }
+                  } else {
+                    if (LOG.isDebugEnabled) {
+                      LOG.debug(
+                        s"Old modification was received, discarded: " +
+                          s"File: $fileName," +
+                          s" avalailable is $available," +
+                          s" actualfileSize is $fileSize," +
+                          s" prevSize is  $prevSize," +
+                          s" lastModifiedTime is $lastModifiedTime, " +
+                          s" prevModifiedTime is $prevModifiedTime," +
+                          s" prevLinesRead is $prevLinesRead ")
                     }
                   }
+
                 }
-                case false => LOG.debug("Status is available " + available + " by " + event.getState.toString() + " " +
-                  "for filename " + fileName)
+
+                case false =>
+                  if (LOG.isDebugEnabled) {
+                    LOG.debug("Status is available " + available + " by " + event.getState.toString() + " " +
+                      "for filename " + fileName)
+                  }
               }
             }
           }
@@ -177,18 +184,18 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
               mapFileAvailability put(file, false)
               LOG.info("Source " + sourceName + " received event: " + event.getState
                 .toString() + " file " + fileName)
-              mapOfFiles.contains(fileName) match {
+              mapOfFiles.containsKey(fileName) match {
                 case false =>
                   LOG.info(Thread.currentThread().getName + " started processing file discovered: " + fileName)
                   val linesRead = readStreamLines(file, 0L)
                   if (linesRead != 0) {
                     LOG.info("End processing discovered file: " + fileName)
-                    mapFileAvailability put(file, true)
+                    mapFileAvailability replace(file, true)
                     sourceVFScounter.incrementFilesCount()
                   }
 
                 case true => {
-                  val filesValue = mapOfFiles.get(fileName, (0L, 0L, 0L))
+                  val filesValue = mapOfFiles.getOrDefault(fileName, (0L, 0L, 0L))
                   val prevLinesRead = filesValue._1
                   val prevModifiedTime = filesValue._2
                   val prevSize = filesValue._3
@@ -246,18 +253,18 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     }
 
     val mapProperties = context.getParameters.entrySet().toArray
-    mapProperties.foreach(prop => LOG.info("Property set by Flume context is : " + prop))
+    mapProperties.foreach(prop => LOG.info(s"Property set by Flume source $sourceName context  is :$prop"))
 
   }
 
   override def start(): Unit = {
     //On starting load map of files.
     //If map exceeds a max limit of count files, purge the oldest.
-    if (Files.exists(Paths.get(propertiesHelper.getStatusFile))) {
-      val loadedMap = loadMap(propertiesHelper.getStatusFile)
-      mapOfFiles = SourceHelper
-        .purgeMapOfFiles(loadedMap, propertiesHelper.getMaxFilesMapCount, propertiesHelper.getTimeoutFileOld)
-    }
+
+    val loadedMap = loadMap(propertiesHelper.getStatusFile)
+    mapOfFiles = SourceHelper
+      .purgeMapOfFiles(loadedMap, propertiesHelper.getMaxFilesMapCount, propertiesHelper.getTimeoutFileOld)
+
 
     sourceVFScounter.start
 
