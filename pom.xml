@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.keedio.flume.source.vfs</groupId>
   <artifactId>flume-source-vfs</artifactId>
-  <version>0.3.0</version>
+  <version>1.0.0</version>
   <description>Keedio's flume-source-vfs is a source component for Apache flume for supported protocols.
   </description>
   <licenses>

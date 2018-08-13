@@ -7,7 +7,7 @@ import java.util.{Calendar, Date}
 import org.apache.commons.vfs2._
 import org.apache.commons.vfs2.impl.StandardFileSystemManager
 import org.junit._
-import org.keedio.flume.source.vfs.config.SourceHelper
+import org.keedio.flume.source.vfs.config.PropertiesHelper
 import org.keedio.flume.source.vfs.watcher._
 import org.mockito.Mockito
 import org.slf4j.{Logger, LoggerFactory}
@@ -48,11 +48,11 @@ class WatchablePathTest {
       }
     }
 
-    val sourceHelper = Mockito.mock(classOf[SourceHelper])
+    val sourceHelper = Mockito.mock(classOf[PropertiesHelper])
     Mockito.when(sourceHelper.getWorkingDirectory).thenReturn(csvDir)
     Mockito.when(sourceHelper.getPatternFilesMatch).thenReturn(csvRegex)
 
-    val watchable = new WatchablePath(refreshTime, startTime, fs
+    val watchable = new WatchablePath(fs
       .resolveFile(csvDir), listener, "sourcename", sourceHelper)
     conditionsGenerator(10, 2000) //(10 iterations * 2 seconds)
 
@@ -86,11 +86,11 @@ class WatchablePathTest {
       }
     }
 
-    val sourceHelper = Mockito.mock(classOf[SourceHelper])
+    val sourceHelper = Mockito.mock(classOf[PropertiesHelper])
     Mockito.when(sourceHelper.getWorkingDirectory).thenReturn(csvDir)
     Mockito.when(sourceHelper.getPatternFilesMatch).thenReturn(csvRegex)
 
-    val watchable = new WatchablePath(refreshTime, startTime, fs
+    val watchable = new WatchablePath( fs
       .resolveFile(csvDir), listener, "sourcename", sourceHelper)
 
     try {
