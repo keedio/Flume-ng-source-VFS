@@ -110,13 +110,13 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
               available match {
                 case true => {
                   if (fileSize > prevSize) {
-                    LOG.info("Source $sourceName File exists in map of files, previous lines of file are " + prevLinesRead + " " + Thread
+                    LOG.info(s"Source $sourceName File exists in map of files, previous lines of file are " + prevLinesRead + " " + Thread
                       .currentThread().getName +
                       " started processing modified file: " + fileName)
                     mapFileAvailability replace(file, false)
                     val linesRead = readStreamLines(file, mapOfFiles.get(fileName)._1)
                     if (linesRead > 0) {
-                      LOG.info("Source $sourceName End processing modified file: " + fileName)
+                      LOG.info(s"Source $sourceName End processing modified file: " + fileName)
                       mapFileAvailability replace(file, true)
                     } else {
                       LOG.info(s"Source $sourceName A modification event was sent for $fileName but lines read $linesRead, do nothing.")

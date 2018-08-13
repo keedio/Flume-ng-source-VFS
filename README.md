@@ -2,6 +2,9 @@
 
 ## Main goal
 **Flume-ng-source-VFS** is a custom Apache Flume source component for processing files under supported file sytems by Apache-Commons-Vfs2™.
+Files from diferent filesystems (sources) can be processed with the same agent.
+![](./flume-vfs.png)
+
 
 ## Description
 Files created or modified will be discovered and sent to flume to be processed by lines.
@@ -12,8 +15,9 @@ Apache Commons VFS supports [multiple file systems](https://commons.apache.org/p
 
 |File System|'work.dir' flume files| features|
 |-----------|-----------------|--------------|
-| File|`file:///home/someuser/somedir`<br> `C:\\flume_incoming` <br> `/home/flume/incoming`|read-write|
+|File|`file:///home/someuser/somedir`<br> `C:\\flume_incoming` <br> `/home/flume/incoming`|read-write|
 |FTP|  `ftp://myusername:mypassword@somehost/somedir`|read-write|
+|SFTP|  `sftp://myusername:mypassword@somehost/somedir`|read-write, path is relative to the user's home directory |
 |HDFS| `hdfs://host:port/user/cloudera/flume-incoming`|read-only, moving or deleting not available|
 
 ## Compilation and packaging
