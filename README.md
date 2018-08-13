@@ -3,7 +3,7 @@
 ## Main goal
 **Flume-ng-source-VFS** is a custom Apache Flume source component for processing files under supported file sytems by Apache-Commons-Vfs2™.
 Files from diferent filesystems (sources) can be processed with the same agent.
-![](./flume-vfs.png)
+![](./img/flume-vfs.png)
 
 
 ## Description
@@ -122,11 +122,11 @@ because adds overhead.
 
 |Parameter                      |Description|
 |------------------------------ |-----------|
-|**```post.process.file```**        |If file is successfully processed by source, move or delete. By<br> default do nothing. If move files is set but target directory<br> does not exists, file will not be moved.This property adds overhead<br> and reduces performance. If the associated property "timeout.start.post.process"<br> is not set with a reasonable amount of seconds it can provoke loosing events.<br> Check for 'timeout.start.post.process'. Available values are ```delete``` or ```move``` .<br> <br>![](./pospro.png)|
+|**```post.process.file```**        |If file is successfully processed by source, move or delete. By<br> default do nothing. If move files is set but target directory<br> does not exists, file will not be moved.This property adds overhead<br> and reduces performance. If the associated property "timeout.start.post.process"<br> is not set with a reasonable amount of seconds it can provoke loosing events.<br> Check for 'timeout.start.post.process'. Available values are ```delete``` or ```move``` .<br> <br>![](./img/pospro.png)|
 |**```processed.dir```**|If property set, files processed will be moved to dir,<br> example /home/flume/out, remember check for permissions.`|
-|**```timeout.start.post.process```**|Post-process files (delete or move) if 'timeout' seconds have passed<br> since the last modification of the file. The file's attribute Last modified time will<br> be checked and if exceeds the threshold (timeout)<br> files will be deleted. If file is still been processed the delay will be increased <br> in another x seconds. Check for more information on Notes os usage. <br><br>***Be careful with this property. If the last modification of the file happens<br> later than the configured timeout, the event will be lost because the file<br> was deleted or moved by exceeding the threshold that determines <br> whether it could be erased or not, i.e., if a new line arrives to a file thas was deleted.*** <br> <br>![](./timepost.png)
-|**```process.discovered.files```**|Upon starting agent, there were already files. <br> Read on startup agent, default is true. Values are ```true``` or ```false`` <br> <br>![](./pdiscovered.png)||
-|**```timeout.start.process```**              |Process file if 'timeout' seconds have passed since the<br> last modification of the file. Intended for huge files<br> being downloaded to incoming with high network latency.<br>For example 60 (seconds), The timeout set by this property<br> is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'  <br> <br>![](./timepostp.png)|
+|**```timeout.start.post.process```**|Post-process files (delete or move) if 'timeout' seconds have passed<br> since the last modification of the file. The file's attribute Last modified time will<br> be checked and if exceeds the threshold (timeout)<br> files will be deleted. If file is still been processed the delay will be increased <br> in another x seconds. Check for more information on Notes os usage.<br> It exists a default delay of 60 seconds between starting agent and triggering<br> counter for post-processing. Such a property is not exposed to user. <br><br>***Be careful with this property. If the last modification of the file happens<br> later than the configured timeout, the event will be lost because the file<br> was deleted or moved by exceeding the threshold that determines <br> whether it could be erased or not, i.e., if a new line arrives to a file thas was deleted.*** <br> <br>![](./img/timepost.png)
+|**```process.discovered.files```**|Upon starting agent, there were already files. <br> Read on startup agent, default is true. Values are ```true``` or ```false`` <br> <br>![](./img/pdiscovered.png)||
+|**```timeout.start.process```**              |Process file if 'timeout' seconds have passed since the<br> last modification of the file. Intended for huge files<br> being downloaded to incoming with high network latency.<br>For example 60 (seconds), The timeout set by this property<br> is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'  <br> <br>![](./img/timepostp.png)|
 |**```recursive.directory.search```**|descend in flume's incoming subdirectories for processing files,<br> default is true. Check [Wiki](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#april-20-2018)|
 
 
@@ -198,6 +198,8 @@ Check for [Data table for metrics](https://github.com/keedio/Flume-ng-source-VFS
     + Configurable interval between flushes data to file.
     + Configurable max limit of files to keep in map when reload agent.
     + Fix bug: SourceCountersVFS not working properly.
+    + Tested hdfs fs.
+    + Tested files in sftp server.
 
 - 0.3.0
     + Recursive search directory is configurable. (Check out for more information in wiki [Issues found](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#issues-found) )
