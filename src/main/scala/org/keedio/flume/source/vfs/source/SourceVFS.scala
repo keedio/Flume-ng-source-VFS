@@ -39,7 +39,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     override def run(): Unit = {
       if (!mapFileAvailability.isEmpty) {
         if (LOG.isDebugEnabled) {
-          LOG.debug("MapFileAvailability has size " + mapFileAvailability.size)
+          LOG.debug(s"$sourceName has MapFileAvailability with size ${mapFileAvailability.size}.")
         }
 
         mapFileAvailability.keySet().stream().forEach(new Consumer[FileObject] {
@@ -69,7 +69,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
               mapFileAvailability put(file, false)
               if (mapOfFiles.containsKey(fileName)) {
                 LOG
-                  .info("File  " + fileName + " was already processed, do nothing !. If desired behavior is to " +
+                  .info(s"Source $sourceName File  " + fileName + " was already processed, do nothing !. If desired behavior is to " +
                     "reprocess "
                     + "file, set property " + SourceProperties
                     .RETAIN_DELETED_FILES_IN_MAP_WHEN_POSTPROCESS + " to false (or just remove property).")
@@ -77,14 +77,14 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
               } else {
                 LOG.info("Source " + sourceName + " received event: " + event.getState
                   .toString() + " file " + fileName)
-                LOG.info(Thread.currentThread().getName + " started processing new file: " + fileName)
+                LOG.info(s"Source $sourceName " +Thread.currentThread().getName + " started processing new file: " + fileName)
                 val linesRead = readStreamLines(file, 0L)
                 if (linesRead != 0) {
                   mapFileAvailability replace(file, true)
-                  LOG.info("End processing new file: " + fileName)
+                  LOG.info(s"Source $sourceName End processing new file: " + fileName)
                   sourceVFScounter.incrementFilesCount()
                 } else {
-                  LOG.info(s"Lines read for $fileName " + linesRead + " do nothing because file was created but there is still no content.")
+                  LOG.info(s"Source $sourceName Lines read for $fileName " + linesRead + " do nothing because file was created but there is still no content.")
                 }
               }
             }
@@ -110,31 +110,31 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
               available match {
                 case true => {
                   if (fileSize > prevSize) {
-                    LOG.info("File exists in map of files, previous lines of file are " + prevLinesRead + " " + Thread
+                    LOG.info(s"Source $sourceName File exists in map of files, previous lines of file are " + prevLinesRead + " " + Thread
                       .currentThread().getName +
                       " started processing modified file: " + fileName)
                     mapFileAvailability replace(file, false)
                     val linesRead = readStreamLines(file, mapOfFiles.get(fileName)._1)
                     if (linesRead > 0) {
-                      LOG.info("End processing modified file: " + fileName)
+                      LOG.info(s"Source $sourceName End processing modified file: " + fileName)
                       mapFileAvailability replace(file, true)
                     } else {
-                      LOG.info(s"A modification event was sent for $fileName but lines read $linesRead, do nothing.")
+                      LOG.info(s"Source $sourceName A modification event was sent for $fileName but lines read $linesRead, do nothing.")
                     }
                   } else if (fileSize < prevSize && lastModifiedTime > prevModifiedTime) {
-                    LOG.info(s"$fileName was modified from first line, start processing from line 0.")
+                    LOG.info(s"Source $sourceName $fileName was modified from first line, start processing from line 0.")
                     mapFileAvailability replace(file, false)
                     val linesRead = readStreamLines(file, 0L)
                     if (linesRead > 0) {
-                      LOG.info(s"End processing modified file $fileName from first line.")
+                      LOG.info(s"Source $sourceName End processing modified file $fileName from first line.")
                       mapFileAvailability replace(file, true)
                     } else {
-                      LOG.info(s"A modification event was sent for $fileName but lines read $linesRead, do nothing.")
+                      LOG.info(s"Source $sourceName A modification event was sent for $fileName but lines read $linesRead, do nothing.")
                     }
                   } else {
                     if (LOG.isDebugEnabled) {
                       LOG.debug(
-                        s"Expired event modification was received, discarded: " +
+                        s"Source $sourceName Expired event modification was received, discarded: " +
                           s"File: $fileName," +
                           s" avalailable is $available," +
                           s" actualfileSize is $fileSize," +
@@ -149,7 +149,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
                 case false =>
                   if (LOG.isDebugEnabled) {
-                    LOG.debug("Status is available " + available + " by " + event.getState.toString() + " " +
+                    LOG.debug("Source $sourceName Status is available " + available + " by " + event.getState.toString() + " " +
                       "for filename " + fileName)
                   }
               }
@@ -186,10 +186,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                 .toString() + " file " + fileName)
               mapOfFiles.containsKey(fileName) match {
                 case false =>
-                  LOG.info(Thread.currentThread().getName + " started processing file discovered: " + fileName)
+                  LOG.info(s"Source $sourceName " + Thread.currentThread().getName + " started processing file discovered: " + fileName)
                   val linesRead = readStreamLines(file, 0L)
                   if (linesRead != 0) {
-                    LOG.info("End processing discovered file: " + fileName)
+                    LOG.info(s"Source $sourceName End processing discovered file: " + fileName)
                     mapFileAvailability replace(file, true)
                     sourceVFScounter.incrementFilesCount()
                   }
@@ -200,13 +200,13 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                   val prevModifiedTime = filesValue._2
                   val prevSize = filesValue._3
                   if (fileSize > prevSize) {
-                    LOG.info("File exists in map of files, previous lines of file are " + prevLinesRead + " " + Thread
+                    LOG.info(s"Source $sourceName File exists in map of files, previous lines of file are " + prevLinesRead + " " + Thread
                       .currentThread().getName +
                       " started processing modified file: " + fileName)
                     mapFileAvailability replace(file, false)
                     val linesRead = readStreamLines(file, mapOfFiles.get(fileName)._1)
                     if (linesRead > 0) {
-                      LOG.info("End processing modified file: " + fileName)
+                      LOG.info(s"Source $sourceName End processing modified file: " + fileName)
                       mapFileAvailability replace(file, true)
                     } else {
                       LOG.info(s"A modification event was sent for $fileName but lines read $linesRead, do nothing.")
@@ -222,12 +222,12 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
                       LOG.info(s"A modification event was sent for $fileName but lines read $linesRead, do nothing.")
                     }
                   } else if (prevSize == fileSize && lastModifiedTime == prevModifiedTime) {
-                    LOG.info("File exists in map of files, previous size of file is " + prevSize + " " + Thread
+                    LOG.info(s"Source $sourceName File exists in map of files, previous size of file is " + prevSize + " " + Thread
                       .currentThread().getName + " nothing to do, file remains unchanged " + fileName)
                   } else {
                     if (LOG.isDebugEnabled) {
                       LOG.debug(
-                        s"Expired event modification was received, discarded: " +
+                        s"Source $sourceName Expired event modification was received, discarded: " +
                           s"File: $fileName," +
                           //s" avalailable is $available," +
                           s" actualfileSize is $fileSize," +
@@ -245,7 +245,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
           executor.execute(thread)
         }
 
-        case _ => LOG.error("Received event is not register.")
+        case _ => LOG.error(s"Source $sourceName Received event is not register.")
       }
     }
   }
@@ -259,11 +259,11 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       .getWorkingDirectory + " and pattern " + propertiesHelper.getPatternFilesMatch)
 
     if (propertiesHelper.getOutPutDirectory == "") {
-      LOG.info("Property 'prcocess.dir', not set, files will not be moved after processing.")
+      LOG.info(s"Source $sourceName Property 'process.dir', not set, files will not be moved after processing.")
     }
 
     val mapProperties = context.getParameters.entrySet().toArray
-    mapProperties.foreach(prop => LOG.info(s"Property set by Flume source $sourceName context  is :$prop"))
+    mapProperties.foreach(prop => LOG.info(s"Source $sourceName Property set by Flume source $sourceName context $prop"))
 
   }
 
@@ -289,15 +289,15 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
 
     //trigger service for post-processing files.
     if (propertiesHelper.getActionToTakeAfterProcessingFiles == "") {
-      LOG.info("No action set for post-processing files from source is " + this.sourceName)
+      LOG.info(s"Source $sourceName No action set for post-processing files from source is " + this.sourceName)
     } else if (propertiesHelper.getTimeoutPostProcess == SourceProperties.DEFAULT_TIMEOUT_POST_PROCESS_FILES) {
-      LOG.warn("Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles + " but " +
+      LOG.warn(s"Source $sourceName Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles + " but " +
         "timeout for " + propertiesHelper
         .getActionToTakeAfterProcessingFiles + " files was not set via property " + SourceProperties
         .TIMEOUT_POST_PROCESS_FILES)
     } else {
       if (LOG.isDebugEnabled) {
-        LOG.debug("Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles)
+        LOG.debug(s"Source $sourceName Action set for post-processing is " + propertiesHelper.getActionToTakeAfterProcessingFiles)
       }
       try {
         servicePostProcessFiles
@@ -305,7 +305,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
             .getTimeoutPostProcess, TimeUnit.SECONDS)
       } catch {
         case ex: Throwable => {
-          LOG.info("Error executing task servicePostProcessFiles, it will no longer be run! " + ex)
+          LOG.info(s"Source $sourceName Error executing task servicePostProcessFiles, it will no longer be run! " + ex)
         }
       }
     }
@@ -399,14 +399,14 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
         in.close()
 
         if (LOG.isDebugEnabled) {
-          LOG.debug("Lines read " + linesProcessed + " from line " + linesLong + " file: " + filename)
+          LOG.debug(s"Source $sourceName Lines read " + linesProcessed + " from line " + linesLong + " file: " + filename)
         }
         file.refresh()
         val lastModifiedTime = file.getContent.getLastModifiedTime
         val fileSize = file.getContent.getSize
         mapOfFiles.put(filename, Tuple3(linesProcessed + linesLong, lastModifiedTime, fileSize))
         if (LOG.isDebugEnabled) {
-          LOG.info("Save filename " + filename + " , " + linesProcessed + " , " + linesLong + " , " + lastModifiedTime
+          LOG.info(s"Source $sourceName Save filename " + filename + " , " + linesProcessed + " , " + linesLong + " , " + lastModifiedTime
             + " , " + fileSize)
         }
         linesProcessed
@@ -428,12 +428,12 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       oos.writeObject(mapOfFiles)
       oos.close()
       if (LOG.isDebugEnabled) {
-        LOG.debug("Write to map of files : " + statusFile)
+        LOG.debug(s"Source $sourceName Write to map of files : " + statusFile)
       }
       true
     } catch {
       case io: IOException =>
-        LOG.error("Cannot write object " + mapOfFiles + " to " + statusFile, io)
+        LOG.error(s"Source $sourceName Cannot write object " + mapOfFiles + " to " + statusFile, io)
         false
     }
   }
@@ -449,12 +449,12 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       val ois = new ObjectInputStream(new FileInputStream(statusFile))
       val mapOfFiles = ois.readObject().asInstanceOf[ConcurrentHashMap[String, (Long, Long, Long)]]
       ois.close()
-      LOG.info("Load from file system map of processed files. " + statusFile)
+      LOG.info(s"Source $sourceName Load from file system map of processed files. " + statusFile)
       mapOfFiles
     } catch {
       case e: IOException =>
         LOG
-          .warn("Map of files is could not be loaded for source " + sourceName + ".Generating new one.")
+          .warn(s" Source $sourceName Map of files is could not be loaded for source " + sourceName + ".Generating new one.")
         new ConcurrentHashMap[String, (Long, Long, Long)]()
     }
   }
@@ -473,7 +473,7 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
       file.moveTo(fileDest)
       if (fileDest.exists()) {
         LOG
-          .info("Moved processed file " + fileName + " to dir " + propertiesHelper
+          .info(s"Source $sourceName Moved processed file " + fileName + " to dir " + propertiesHelper
             .getOutPutDirectory)
       }
     } else {
@@ -492,10 +492,10 @@ class SourceVFS extends AbstractSource with Configurable with EventDrivenSource 
     val fileName = file.getName.getBaseName
     if (file.delete()) {
       if (LOG.isDebugEnabled) {
-        LOG.debug("Deleted processed file " + fileName)
+        LOG.debug(s"Source $sourceName Deleted processed file " + fileName)
       }
     } else {
-      LOG.error("Could not delete file after processing" + fileName)
+      LOG.error(s"Source $sourceName Could not delete file after processing" + fileName)
     }
   }
 
