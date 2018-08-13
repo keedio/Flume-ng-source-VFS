@@ -190,7 +190,7 @@ Check for [Data table for metrics](https://github.com/keedio/Flume-ng-source-VFS
  [Documentation Flume-ng-source-VFS](https://github.com/keedio/Flume-ng-source-VFS/wiki)
 
 ### Version history #####
-- 0.4.0
+- 1.0.0
     + Delay between runs for monitor is now configurable.
     + Files to check per run is now configurable.
     + Added Timestamp and counter lines when processing data for better control over file parallel modification.
