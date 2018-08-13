@@ -12,8 +12,8 @@ Apache Commons VFS supports [multiple file systems](https://commons.apache.org/p
 
 |File System|'work.dir' flume files| features|
 |-----------|-----------------|--------------|
-| File|`file:///home/someuser/somedir`<br> `C:\\flume_incoming` <br> `/home/flume/incoming`||
-|FTP|  `ftp://myusername:mypassword@somehost/somedir`||
+| File|`file:///home/someuser/somedir`<br> `C:\\flume_incoming` <br> `/home/flume/incoming`|read-write|
+|FTP|  `ftp://myusername:mypassword@somehost/somedir`|read-write|
 |HDFS| `hdfs://host:port/user/cloudera/flume-incoming`|read-only, moving or deleting not available|
 
 ## Compilation and packaging
@@ -122,7 +122,7 @@ because adds overhead.
 |**```processed.dir```**|If property set, files processed will be moved to dir,<br> example /home/flume/out, remember check for permissions.|
 |**```timeout.start.post.process```**|Post-process files (delete or move) if 'timeout' seconds have passed<br> since the last modification of the file. The file's attribute Last modified time will<br> be checked and if exceeds the threshold (timeout)<br> files will be deleted. If file is still been processed the delay will be increased <br> in another x seconds. Check for more information on Notes os usage. <br><br>***Be careful with this property. If the last modification of the file happens<br> later than the configured timeout, the event will be lost because the file<br> was deleted or moved by exceeding the threshold that determines <br> whether it could be erased or not, i.e., if a new line arrives to a file thas was deleted.*** <br> <br>![](./timepost.png)
 |**```process.discovered.files```**|Upon starting agent, there were already files. <br> Read on startup agent, default is true|
-|**```timeout.start.process```**              |Process file if 'timeout' seconds have passed since the<br> last modification of the file. Intended for huge files<br> being downloaded to incoming with high network latency.<br>For example 60 (seconds), The timeout set by this property<br> is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'|
+|**```timeout.start.process```**              |Process file if 'timeout' seconds have passed since the<br> last modification of the file. Intended for huge files<br> being downloaded to incoming with high network latency.<br>For example 60 (seconds), The timeout set by this property<br> is recalculated basis on 'getFileSystem.getLastModTimeAccuracy'  <br> <br>![](./timepostp.png)|
 |**```recursive.directory.search```**|descend in flume's incoming subdirectories for processing files,<br> default is true. Check [Wiki](https://github.com/keedio/Flume-ng-source-VFS/wiki/NOTES#april-20-2018)|
 
 
